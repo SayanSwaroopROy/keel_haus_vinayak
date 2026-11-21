@@ -79,7 +79,7 @@ function Builder({ requisition }: { requisition: Requisition }) {
   const submit = () => {
     const vendorIds = categories.flatMap((category) => chosenFor(category).map((vendor) => vendor.id));
     create.mutate(
-      { vendor_ids: [...new Set(vendorIds)], due_date: dueDate },
+      { vendor_ids: [...new Set(vendorIds)], due_date: new Date(`${dueDate}T23:59:59`).toISOString() },
       {
         onSuccess: (created) => {
           toast.add({
