@@ -1,22 +1,63 @@
-// Contract test against the running FastAPI backend (api/). Start it first: `uv run uvicorn app.main:app`.
-import request from "supertest";
-import { describe, expect, it } from "vitest";
-import { EchoOutSchema, HealthSchema } from "../src/lib/schemas";
+// Live contract test against the running FastAPI backend. Start it first: `pnpm dev:api`.
+// Seeded identities come from GET /users; every other call sends X-User-Id.
+import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
+import {
+  DashboardStatsSchema,
+  InventoryRowSchema,
+  NotificationSchema,
+  ProjectSchema,
+  RequisitionSchema,
+  UserSchema,
+  VendorSchema,
+} from "../src/lib/api/schemas";
+import { ConversationSchema, RfqSchema, WorkOrderSchema } from "../src/lib/api/schemas-flow";
 
 const API = process.env.API_URL ?? "http://127.0.0.1:8000";
 
-describe("api contract", () => {
-  it("GET /health -> 200", async () => {
-    const res = await request(API).get("/health").expect(200);
-    expect(HealthSchema.parse(res.body)).toEqual({ status: "ok" });
+const get = async (path: string, userId?: string) => {
+  const response = await fetch(`${API}${path}`, { headers: userId ? { "X-User-Id": userId } : {} });
+  return { status: response.status, body: (await response.json()) as unknown };
+};
+
+describe("api contract (live)", { timeout: 30_000 }, () => {
+  let hodId = "";
+
+  beforeAll(async () => {
+    const users = await get("/users?role=hod");
+    hodId = z.array(UserSchema).parse(users.body)[0]?.id ?? "";
+    expect(hodId).not.toBe("");
   });
 
-  it("POST /echo invalid -> 422", async () => {
-    await request(API).post("/echo").send({ message: "" }).expect(422);
+  it("GET /health", async () => {
+    const res = await get("/health");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "ok" });
   });
 
-  it("POST /echo valid -> schema match", async () => {
-    const res = await request(API).post("/echo").send({ message: "hi" }).expect(200);
-    expect(EchoOutSchema.parse(res.body)).toEqual({ echo: "hi", length: 2 });
+  it("rejects a missing X-User-Id with 401", async () => {
+    expect((await get("/projects")).status).toBe(401);
+  });
+
+  it("rejects an unknown X-User-Id with 401", async () => {
+    expect((await get("/projects", "00000000-0000-0000-0000-000000000000")).status).toBe(401);
+  });
+
+  it.each([
+    ["/me", UserSchema],
+    ["/projects", z.array(ProjectSchema)],
+    ["/notifications", z.array(NotificationSchema)],
+    ["/dashboard/stats", DashboardStatsSchema],
+    ["/requisitions", z.array(RequisitionSchema)],
+    ["/inventory", z.array(InventoryRowSchema)],
+    ["/vendors", z.array(VendorSchema)],
+    ["/rfqs", z.array(RfqSchema)],
+    ["/work-orders", z.array(WorkOrderSchema)],
+    ["/conversations", z.array(ConversationSchema)],
+  ])("GET %s matches the zod schema", async (path, schema) => {
+    const res = await get(path, hodId);
+    expect(res.status).toBe(200);
+    const parsed = schema.safeParse(res.body);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues.slice(0, 3))).toBe(true);
   });
 });

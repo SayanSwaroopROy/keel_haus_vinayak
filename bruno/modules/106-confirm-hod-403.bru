@@ -1,5 +1,5 @@
 meta {
-  name: confirm hod 403
+  name: confirm hod unknown 404
   type: http
   seq: 106
 }
@@ -19,6 +19,6 @@ body:json {
 }
 
 assert {
-  res.status: eq 403
-  res.body.error.code: eq forbidden
+  res.status: eq 404
+  res.body.error.code: eq not_found
 }

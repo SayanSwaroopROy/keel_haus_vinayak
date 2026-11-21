@@ -26,29 +26,7 @@ export type EndpointKey =
   | "workOrders"
   | "files.get";
 
-export const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>([
-  "dashboard.stats",
-  "requisitions.list",
-  "requisitions.get",
-  "requisitions.revisions",
-  "requisitions.matchCodes",
-  "requisitions.assignCode",
-  "requisitions.stockCheck",
-  "requisitions.decision",
-  "inventory.list",
-  "vendors.list",
-  "vendors.create",
-  "vendors.update",
-  "vendors.registration",
-  "vendors.performance",
-  "rfqs",
-  "alternatives",
-  "conversations",
-  "quotations",
-  "evaluation",
-  "workOrders",
-  "files.get",
-]);
+export const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>();
 
 export function isMocked(key: EndpointKey): boolean {
   return MOCKED.has(key);
