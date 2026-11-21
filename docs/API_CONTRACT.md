@@ -8,9 +8,8 @@
 - **Format:** JSON, UTF-8. IDs are UUID strings. Timestamps are ISO-8601 UTC.
 - **Money:** INR as numbers, 2 dp. Quantities as numbers.
 - **`null`** means "not found or unknown" and is never a guess.
-- **Auth:** `Authorization: Bearer <jwt>` on everything except `/health` and `/auth/login`.
-  - The JWT carries `sub`, `role` and `vendor_id`.
-  - Expiry is 12 h.
+- **Identity (no login):** there is no password, token or JWT. The user picks a seeded identity in the app, and every request except `/health` and `GET /users` sends `X-User-Id: <user uuid>`.
+  - The server loads that user and applies role and vendor scoping. The identity is a demo convenience, not security.
 - **Uploads:** `multipart/form-data`, field `file`. Max 20 MB.
 
 ## Errors (all non-2xx, including validation)
@@ -21,15 +20,14 @@
 | Code | Status | When |
 |---|---|---|
 | `validation_error` | 422 | Bad input |
-| `unauthorized` | 401 | Missing or invalid token |
+| `unauthorized` | 401 | Missing or unknown `X-User-Id` |
 | `forbidden` | 403 | Wrong role, or another vendor's or engineer's record |
 | `not_found` | 404 | Unknown id |
 | `invalid_transition` | 409 | Status change not allowed |
 | `conflict` | 409 | Duplicate, or stock changed |
 | `unsupported_file` | 415 | Bad extension or MIME. The file is still stored and `details` lists accepted formats. |
 | `file_too_large` | 413 | Over 20 MB |
-| `forbidden_recipient` | 403 | Email recipient other than `RFQ_TEST_INBOX` |
-| `provider_error` | 502 | AI, voice or email provider failed |
+| `provider_error` | 502 | AI or voice provider failed |
 | `timeout` | 504 | Provider timeout |
 | `internal` | 500 | Anything else |
 
@@ -69,14 +67,14 @@ Requisition { id, project_id, raised_by, input_type: "voice"|"image"|"pdf"|"csv"
               original_lang, source_file_id|null, status, items: ReqItem[], revision: number, confirmed_at|null, created_at }
 StockRow    { req_item_id, material, uom, requested, physical, reserved, available, to_procure, is_dummy: true }
 Vendor      { id, name, categories: string[], category_source: "inferred"|"manual", brands: string[], status: "active"|"blocked",
-              contact_email (always RFQ_TEST_INBOX), performance: {quality, delivery, disputes, n, is_dummy}|null }
+              performance: {quality, delivery, disputes, n, is_dummy}|null }
 Rfq         { id, requisition_id, category, items: RfqItem[], terms: string[], due_date, status, vendors: RfqVendor[] }
 RfqItem     { id, req_item_id, description, spec, brand|null, uom, quantity (= to_procure for material, boq qty for work), spec_version }
 RfqVendor   { vendor_id, vendor_name, status, viewed_at|null }
 Message     { id, conversation_id, rfq_id, requisition_id, vendor_id, sender_id, sender_role, type: "text"|"voice"|"system",
               text|null, transcript|null, audio_url|null, rfq_item_id|null, created_at, read_at|null }
 Alternative { id, rfq_item_id, vendor_id, original_spec, proposed_spec, proposed_brand|null, explanation, status, decided_at|null }
-Quotation   { id, rfq_id, vendor_id, source: "app_form"|"uploaded_doc", source_file_id|null, status, quote_date|null, validity_days|null,
+Quotation   { id, rfq_id, vendor_id, source: "app_form", status, quote_date|null, validity_days|null,
               expired: boolean|null, gst_pct|null, gst_included|null, freight|null, payment_terms|null, advance_pct|null,
               start_days|null, warranty|null, escalation_clause|null, brands: string[], items: QuoteItem[],
               confidence: 0..1, flags: string[], remarks|null }
@@ -94,9 +92,7 @@ Flags vocabulary, as used in `flags`:
 - `expired_offer`
 - `unit_mismatch`
 - `qty_differs_from_rfq`
-- `handwritten_low_confidence`
 - `missing_terms`
-- `missing_gst`
 - `brand_substitution`
 - `escalation_clause`
 - `undated`
@@ -106,8 +102,8 @@ Flags vocabulary, as used in `flags`:
 | Method | Path | Role | Request | Response |
 |---|---|---|---|---|
 | GET | `/health` | public | - | `{status:"ok"}` |
-| POST | `/auth/login` | public | `{username, password}` | `{token, user: User}` |
-| GET | `/me` | any | - | `User` |
+| GET | `/users` | public | `?role=` | `User[]` (demo identities for the role picker) |
+| GET | `/me` | any | - | `User` (from `X-User-Id`) |
 | GET | `/projects` | any | - | `Project[]` |
 | POST | `/ingest` | engineer, hod | multipart `file`, `project_id`, `input_type?` | `202 IngestJob` |
 | POST | `/requisitions` | engineer | `{project_id, text, lang?}` (WhatsApp paste or form) | `202 IngestJob` |
@@ -129,7 +125,7 @@ Flags vocabulary, as used in `flags`:
 | POST / PATCH | `/vendors`, `/vendors/{id}` | hod | `Vendor` fields | `Vendor` |
 | POST | `/vendors/{id}/performance` | hod | `{project_id, quality, delivery, disputes (1-5), note}` | `201` |
 | POST | `/requisitions/{id}/rfqs` | hod | `{vendor_ids?, due_date}` (default = category match; must be ≥3, else `422` with reason) | `201 Rfq[]` (one per category, draft) |
-| POST | `/rfqs/{id}/send` | hod | - | `Rfq` (notifies vendors in-app; email copy to `RFQ_TEST_INBOX` only) |
+| POST | `/rfqs/{id}/send` | hod | - | `Rfq` (notifies vendors in-app only; no email is sent) |
 | GET | `/rfqs` | vendor (own), hod | `?bucket=new|open|clarification|pending_quote|submitted|awarded|closed` | `Rfq[]` |
 | GET | `/rfqs/{id}` | vendor (own), hod | - | `Rfq` (first vendor open sets `RFQ_VIEWED`) |
 | GET | `/conversations` | vendor (own), hod | - | `{id, rfq_id, requisition_id, vendor_id, vendor_name, last_message, unread, status, last_activity}[]` |
@@ -137,8 +133,8 @@ Flags vocabulary, as used in `flags`:
 | POST | `/conversations/{id}/messages` | participant, hod | `{text, rfq_item_id?}` or multipart `audio` + `rfq_item_id?` | `201 Message` (voice is transcribed) |
 | POST | `/alternatives` | vendor | `{rfq_item_id, proposed_spec, proposed_brand?, explanation}` | `201 Alternative` |
 | POST | `/alternatives/{id}/decision` | hod | `{action: "accept"|"reject"|"request_info", note}` | `Alternative` (accept writes a new `rfq_item.spec_version`) |
-| POST | `/rfqs/{id}/quotations` | vendor (own), hod (on behalf, with `vendor_id`) | JSON `Quotation` form, or multipart `file` (PDF/scan/image) | `201 Quotation` (uploads go through ingestion; poll the job) |
-| PATCH | `/quotations/{id}` | hod | partial `Quotation` / `items` | `Quotation` (human correction, status `VERIFIED`) |
+| POST | `/rfqs/{id}/quotations` | vendor (own), hod (on behalf, with `vendor_id`) | JSON `Quotation` form only (no file or scan upload) | `201 Quotation` |
+| PATCH | `/quotations/{id}` | hod | partial `Quotation` / `items` | `Quotation` (HOD correction, status `VERIFIED`) |
 | GET | `/rfqs/{id}/quotations` | hod; vendor (own only) | - | `Quotation[]` |
 | POST | `/rfqs/{id}/evaluation` | hod | `{weights?}` | `201 Evaluation` |
 | GET | `/rfqs/{id}/evaluation` | hod | - | `Evaluation` |

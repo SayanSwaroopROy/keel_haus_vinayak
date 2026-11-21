@@ -9,7 +9,7 @@ Team KeelHaus. Client: Vinayak Group. Mode: **HYBRID = EXPO + WEB**.
 This file overrides the generic hackathon-project-rules skill. The full plan is in `docs/ARCHITECTURE.md`.
 
 ## Product rules (hard; stop and flag any request that breaks one)
-- **Never email a real vendor.** RFQ email copies go only to `RFQ_TEST_INBOX`. The backend refuses any other recipient. Vendor contact emails stored in the DB are the test inbox.
+- **No email is ever sent.** There is no email integration. All notifications are in-app, between the mobile app and the HOD web.
 - **A human makes the final call.**
   - No requisition is submitted without the engineer's confirmation.
   - No RFQ is sent without HOD approval.
@@ -38,7 +38,7 @@ This file overrides the generic hackathon-project-rules skill. The full plan is 
   - Never commit `.env`.
 - `.env.example` holds names and safe placeholders only.
 - Validate API input and output with shared schemas: pydantic in api, zod in mobile and web, mirroring `docs/API_CONTRACT.md`.
-- Backend enforces auth, roles, vendor scoping and status transitions. The frontend role choice is UX only.
+- **No login.** There are no passwords or tokens. The user picks a seeded identity in a role picker and the app sends `X-User-Id`. The backend still enforces roles, vendor scoping and status transitions from that header.
 - Handle loading, empty, success, timeout and error states. The app is mobile-first; the HOD web is responsive.
 
 ## Hybrid mode specifics
@@ -72,7 +72,7 @@ Contracts change only through SETUP/INTEGRATOR, with every dev told. For any sha
 - **FRONTEND:** mock only behind a replaceable API service layer until the backend is up. Cover loading, empty, error and retry states and basic accessibility. Do not change contracts alone.
 - **BACKEND:**
   - Implement `docs/API_CONTRACT.md` exactly, including `GET /health` and the error format.
-  - Add timeouts and safe errors for AI, voice and email providers. Keep keys server-side.
+  - Add timeouts and safe errors for AI and voice providers. Keep keys server-side.
   - Write alembic migrations and test them on the dev DB. Write pytest + HTTPX tests.
 - **INTEGRATOR:**
   - Confirm both branches are ready, review, and merge with approval.
