@@ -26,10 +26,10 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [x] `INT` AGENTS.md (hybrid EXPO + WEB operating contract)
 - [x] `INT` `docs/API_CONTRACT.md`, `DATABASE_SCHEMA.md`, `EVENT_CONTRACT.md`, `ARCHITECTURE.md`, `LOCAL_DEVELOPMENT.md`
 - [x] `INT` Repo scaffold: `api/`, `mobile/`, `web/`, `bruno/`
-- [ ] `INT` `web/next.config.ts` rewrites `/api/*` to FastAPI
-- [ ] `INT` Root scripts: `dev:api`, `dev:web`, `dev:mobile`, `test:api`, `test:bruno`, `typecheck`, `lint`, `test:all`
-- [ ] `INT` `.env.example` complete (Sarvam, OpenRouter, DB URLs). No Resend, `RFQ_TEST_INBOX` or JWT secret.
-- [ ] `INT` Provider connectivity check (`api/scripts/check_connectivity.py`) passes for DB, Sarvam, OpenRouter
+- [x] `INT` `web/next.config.ts` rewrites `/api/*` to FastAPI
+- [x] `INT` Root scripts: `dev:api`, `dev:web`, `dev:mobile`, `test:api`, `test:bruno`, `typecheck`, `lint`, `test:all`
+- [x] `INT` `.env.example` complete (Sarvam, OpenRouter, DB URLs). No Resend, `RFQ_TEST_INBOX` or JWT secret.
+- [x] `INT` Provider connectivity check (`api/scripts/check_connectivity.py`) passes for DB, Sarvam, OpenRouter
 
 ## Phase 1: Backend core (BE)
 

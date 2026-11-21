@@ -27,10 +27,6 @@ export type EndpointKey =
   | "files.get";
 
 export const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>([
-  // Backend still has JWT login; GET /users and X-User-Id are pending its rework.
-  "users.list",
-  "projects.list",
-  "notifications",
   "dashboard.stats",
   "requisitions.list",
   "requisitions.get",
