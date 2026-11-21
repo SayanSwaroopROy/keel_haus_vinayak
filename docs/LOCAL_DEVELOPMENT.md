@@ -1,5 +1,7 @@
 # Local Development (HYBRID: Expo app + Next.js HOD web + FastAPI)
 
+**Final demo host:** the INTEGRATOR's own device runs the API, the HOD web, the Expo dev server and the ngrok tunnel for the final demo (agreed with SETUP). Phones only run Expo Go. Other devs run these services locally for development, not for the demo.
+
 **Prereqs:**
 - Node per `.nvmrc`, pnpm, uv.
 - ngrok, logged in manually: `ngrok config add-authtoken …`.

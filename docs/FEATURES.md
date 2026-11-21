@@ -245,7 +245,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 ## Phase 7: Integration and demo (INT)
 
 - [ ] `INT` Swap mocks for real API in mobile and web
-- [ ] `INT` Single ngrok tunnel on port 3000; verify from a physical phone and a second device
+- [ ] `INT` Single ngrok tunnel on port 3000, run from the INTEGRATOR's own device (API, web, Expo and tunnel all hosted there); verify from a physical phone and a second device
 - [ ] `INT` Expo Go QR flow documented
 - [ ] `INT` End-to-end demo script (ARCHITECTURE section N, steps 1–8)
 - [ ] `INT` Golden seed states per demo step
