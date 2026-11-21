@@ -11,7 +11,10 @@ export default function LoginPage() {
         aria-label="About this workspace"
         className="relative hidden flex-col justify-between overflow-hidden bg-binding p-10 text-binding-foreground lg:flex"
       >
-        <p className="text-sm font-medium tracking-wide text-binding-foreground/85">Contracts &amp; Planning</p>
+        <p aria-hidden="true" className="flex flex-col leading-none">
+          <span className="text-[1.35rem] font-medium tracking-[0.22em]">VINAYAK</span>
+          <span className="mt-1 text-[0.62rem] tracking-[0.18em] text-binding-foreground/80">PROCUREMENT · HOD</span>
+        </p>
         <div className="flex max-w-md flex-col gap-5">
           <h1 className="text-4xl leading-tight font-medium text-balance">
             Every requisition settled by a person, with the evidence in front of them.

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-21T13:10:00+05:30",
+  "title": "Design System: Vinayak Procurement · HOD",
+  "extensions": {
+    "colorMeta": {
+      "binding": { "role": "primary", "displayName": "Binding Crimson", "canonical": "oklch(0.55 0.21 26)", "tonalRamp": ["oklch(0.15 0.06 26)", "oklch(0.25 0.1 26)", "oklch(0.38 0.15 24)", "oklch(0.47 0.18 25)", "oklch(0.55 0.21 26)", "oklch(0.7 0.14 26)", "oklch(0.88 0.05 25)", "oklch(0.95 0.02 25)"] },
+      "ink": { "role": "neutral", "displayName": "Ledger Ink", "canonical": "oklch(0.25 0.008 260)" },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "oklch(1 0 0)" },
+      "rule": { "role": "neutral", "displayName": "Rule", "canonical": "oklch(0.92 0.008 60)" },
+      "unsure": { "role": "state", "displayName": "Turmeric", "canonical": "oklch(0.62 0.15 70)" },
+      "settled": { "role": "state", "displayName": "Leaf", "canonical": "oklch(0.48 0.11 155)" }
+    },
+    "typographyMeta": {
+      "figure": { "displayName": "Figure", "purpose": "Ledger figures; tabular lining numerals, right-aligned, unit beside." },
+      "secondary-script": { "displayName": "Secondary script", "purpose": "Bengali and Hindi second line under English labels." }
+    },
+    "motion": [
+      { "name": "seal-stamp", "value": "420ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Decision seal stamps in once; disabled under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px", "purpose": "Crimson rail replaces the top bar; decision bar goes inline." },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Approve and the single main action on a page.",
+      "html": "<button class=\"ds-btn-primary\">Approve</button>",
+      "css": ".ds-btn-primary { background: var(--binding, oklch(0.55 0.21 26)); color: oklch(0.99 0.005 30); height: 36px; padding: 0 16px; border: 1px solid transparent; border-radius: 6px; font: 500 14px Roboto, system-ui, sans-serif; cursor: pointer; transition: background .15s; } .ds-btn-primary:hover { background: color-mix(in oklch, oklch(0.55 0.21 26) 80%, white); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.55 0.21 26 / 55%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions such as Ask to clarify.",
+      "html": "<button class=\"ds-btn-outline\">Ask to clarify</button>",
+      "css": ".ds-btn-outline { background: #fff; color: oklch(0.25 0.008 260); height: 36px; padding: 0 14px; border: 1px solid oklch(0.9 0.008 60); border-radius: 6px; font: 500 14px Roboto, system-ui, sans-serif; cursor: pointer; } .ds-btn-outline:hover { background: oklch(0.965 0.005 60); } .ds-btn-outline:focus-visible { outline: 2px solid oklch(0.55 0.21 26 / 55%); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "description": "Decision, waiting, settled and demo-data tones.",
+      "html": "<span class=\"ds-badge ds-decision\">Needs your decision</span> <span class=\"ds-badge ds-unsure\">2 unsure</span> <span class=\"ds-badge ds-settled\">Approved</span> <span class=\"ds-badge ds-dummy\">Demo data</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 3.6px; font: 500 12px Roboto, system-ui, sans-serif; border: 1px solid transparent; } .ds-decision { background: oklch(0.55 0.21 26); color: #fff; } .ds-unsure { background: oklch(0.96 0.045 85); color: oklch(0.42 0.1 60); } .ds-settled { background: oklch(0.96 0.03 155); color: oklch(0.48 0.11 155); } .ds-dummy { border: 1px dashed oklch(0.9 0.008 60); color: oklch(0.47 0.012 50); }"
+    },
+    {
+      "name": "Binding Rail Nav",
+      "kind": "nav",
+      "refersTo": "nav-rail",
+      "description": "Crimson rail with trilingual nav items.",
+      "html": "<nav class=\"ds-rail\"><span class=\"ds-mark\">VINAYAK</span><a class=\"ds-item ds-active\" href=\"#\">Dashboard<small>ড্যাশবোর্ড · डैशबोर्ड</small></a><a class=\"ds-item\" href=\"#\">Requisitions<small>চাহিদাপত্র · माँग-पत्र</small></a></nav>",
+      "css": ".ds-rail { display: flex; flex-direction: column; gap: 4px; width: 240px; padding: 16px; background: oklch(0.55 0.21 26); color: oklch(0.99 0.005 30); font-family: Roboto, 'Noto Sans Bengali', 'Noto Sans Devanagari', sans-serif; } .ds-mark { font-size: 21px; font-weight: 500; letter-spacing: .22em; padding: 8px 12px 24px; } .ds-item { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 4.8px; color: inherit; text-decoration: none; font-size: 14px; font-weight: 500; } .ds-item small { font-size: 11.5px; font-weight: 400; opacity: .75; } .ds-item:hover { background: color-mix(in oklch, oklch(0.38 0.15 24) 60%, transparent); } .ds-active { background: oklch(0.38 0.15 24); }"
+    },
+    {
+      "name": "Decision Seal",
+      "kind": "custom",
+      "description": "Signature: stamped on a requisition once the HOD decides.",
+      "html": "<div class=\"ds-seal\"><div><small>VINAYAK · HOD</small><b>APPROVED</b><small>HC · 21 Nov 2026</small></div></div>",
+      "css": ".ds-seal { display: grid; place-items: center; width: 112px; height: 112px; padding: 4px; border: 2px solid oklch(0.48 0.11 155); border-radius: 50%; color: oklch(0.48 0.11 155); transform: rotate(-8deg); font-family: Roboto, sans-serif; } .ds-seal > div { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; border: 1px solid currentColor; border-radius: 50%; } .ds-seal small { font-size: 9px; letter-spacing: .15em; opacity: .8; } .ds-seal b { font-size: 13px; letter-spacing: .06em; }"
+    },
+    {
+      "name": "Ledger Row with Thread",
+      "kind": "custom",
+      "description": "Signature: an open account tied by the crimson thread.",
+      "html": "<a class=\"ds-row\" href=\"#\"><span class=\"ds-thread\"><i></i></span><span><b>REQ-0142</b><br><small>DEMO1 · 5 lines · 2 unsure</small></span></a>",
+      "css": ".ds-row { display: flex; gap: 12px; padding: 12px 8px 12px 0; border-top: 1px solid oklch(0.92 0.008 60); border-bottom: 1px solid oklch(0.92 0.008 60); color: oklch(0.25 0.008 260); text-decoration: none; font: 14px Roboto, sans-serif; } .ds-row:hover { background: oklch(0.985 0.003 60); } .ds-row small { color: oklch(0.47 0.012 50); } .ds-thread { position: relative; display: flex; justify-content: center; width: 16px; } .ds-thread::before { content: ''; width: 1px; background: oklch(0.55 0.21 26); } .ds-thread i { position: absolute; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: oklch(0.55 0.21 26); box-shadow: 0 0 0 2px #fff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Haal Khata",
+    "overview": "The red cloth-bound ledger a Bengali trader opens every Poila Baisakh, rendered as working software. Vinayak's crimson is the binding: it wraps the navigation and marks the accounts the HOD still has to settle. The page inside is plain white stock ruled with one-pixel hairlines, and every figure sits in tabular columns.",
+    "keyCharacteristics": [
+      "Crimson binding rail as navigation, with the white text wordmark on it. The red-on-transparent logo appears only on white.",
+      "Open accounts carry a crimson thread (a 1px cord with a knot) until the HOD signs them off.",
+      "Decisions stamp a circular seal. Nothing disappears; it is approved, rejected or sent back.",
+      "English first, with Bengali and Hindi as a quieter second line on navigation and statuses.",
+      "Light only. The HOD works under office light and in daylight on a phone."
+    ],
+    "rules": [
+      { "name": "The Decision Rule", "body": "Crimson means brand or \"your decision now\". A crimson element the HOD cannot act on, or that is not the brand, is a defect.", "section": "colors" },
+      { "name": "The Honest Ink Rule", "body": "Uncertainty is shown in turmeric and never hidden. Rejection reads as struck-through, never erased.", "section": "colors" },
+      { "name": "The Column Rule", "body": "Numbers are figures, not decoration: tabular-nums, right-aligned, unit beside them. A null shows as \"—\" or \"Not provided\", never as 0.", "section": "typography" }
+    ],
+    "dos": [
+      "Do lead every working page with what needs the HOD's decision.",
+      "Do show AI uncertainty, null values and clarification questions in turmeric, next to the value they concern.",
+      "Do label every simulated value (demo stock, demo vendor history, mocked endpoints) with the dashed dummy badge or the demo banner.",
+      "Do set every number in tabular figures with its unit.",
+      "Do require a note on every approve, reject or clarify decision."
+    ],
+    "donts": [
+      "Don't use crimson for decoration, charts or emphasis that isn't a decision.",
+      "Don't add kickers or eyebrows above headings.",
+      "Don't add thick coloured side stripes. The thread is the only left-edge mark, and it is 1px.",
+      "Don't auto-select, auto-approve or pre-tick any decision. The human decides.",
+      "Don't render the red logo on a crimson surface. Use the white text wordmark there.",
+      "Don't show a missing quantity as 0 or guess a unit."
+    ]
+  }
+}
