@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, space, TAP_TARGET, type } from '@/theme/tokens';
+import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
 
 import { Icon } from './icon';
 
@@ -13,7 +13,13 @@ type TopBarProps = {
   right?: ReactNode;
 };
 
-// The crimson binding: wordmark on the root screen, a back arrow and title deeper in.
+// Opened from a notification or a restored session there may be nothing to go back to: land on the role's home.
+function goBack(): void {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
+
+// The crimson binding: wordmark on the root screen, an explicit "Back" button and title deeper in.
 export function TopBar({ title, back = false, right }: TopBarProps) {
   const insets = useSafeAreaInsets();
 
@@ -22,11 +28,13 @@ export function TopBar({ title, back = false, right }: TopBarProps) {
       {back ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
+          accessibilityLabel="Back"
+          accessibilityHint="Returns to the previous screen"
+          onPress={goBack}
           hitSlop={8}
-          style={styles.iconButton}>
-          <Icon name="back" color={colors.bindingForeground} />
+          style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}>
+          <Icon name="back" size={20} color={colors.bindingForeground} />
+          <Text style={styles.backLabel}>Back</Text>
         </Pressable>
       ) : null}
       {title ? (
@@ -53,7 +61,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.sm,
   },
-  iconButton: { width: 40, height: TAP_TARGET, justifyContent: 'center' },
+  backButton: {
+    minHeight: TAP_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingLeft: space.xs,
+    paddingRight: space.row,
+    marginLeft: -space.xs,
+    borderRadius: radius.lg,
+  },
+  backPressed: { backgroundColor: colors.bindingDeep },
+  backLabel: { ...type.body, fontWeight: '500', color: colors.bindingForeground },
   wordmark: { ...type.wordmark, color: colors.bindingForeground, flex: 1, paddingVertical: space.sm },
   title: { ...type.sectionTitle, color: colors.bindingForeground, flex: 1 },
   right: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
