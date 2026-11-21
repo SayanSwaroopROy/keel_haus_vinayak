@@ -1,20 +1,15 @@
 meta {
-  name: login bad password
+  name: no X-User-Id returns 401
   type: http
-  seq: 2
+  seq: 4
 }
 
-post {
-  url: {{baseUrl}}/auth/login
-  body: json
+get {
+  url: {{baseUrl}}/me
+  body: none
   auth: none
-}
-
-body:json {
-  { "username": "hod", "password": "definitely-wrong" }
 }
 
 assert {
   res.status: eq 401
-  res.body.error.code: eq unauthorized
 }

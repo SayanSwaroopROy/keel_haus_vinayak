@@ -45,7 +45,7 @@ def run_job(job_id: uuid.UUID) -> None:
                 res = extract.run_text(job.raw_text or "", job.lang_hint, step)
             create_from_extraction(db, job, res.items, res.lang, job.input_type or "text", job.created_by, res.notes)
             job.raw_text, job.transcript = res.raw_text or job.raw_text, res.transcript
-            job.detected_lang = res.lang if res.lang in LANGS else None
+            job.detected_lang = res.detected if res.detected in LANGS else None
             job.status, job.step = "DONE", "done"
             db.commit()
             log.info("job %s done in %.1fs", job_id, time.time() - t0)
@@ -57,17 +57,18 @@ def run_job(job_id: uuid.UUID) -> None:
         _fail(job_id, "Could not process this input. Try again or send a different format.")
 
 
-STALE_AFTER = timedelta(minutes=10)
+STALE_AFTER = timedelta(minutes=10)  # lazy check on GET: a real vision job can run long
+SWEEP_AFTER = timedelta(minutes=2)  # startup: after a restart nothing from before it is still running
 STALE_MESSAGE = "This took too long or the server restarted while it was processing. Upload it again."
 
 
 def fail_stale_jobs() -> int:
-    """Startup sweep. Only jobs older than STALE_AFTER: the dev database is shared, so a teammate's live job is left alone."""
+    """Startup sweep. Fails QUEUED/RUNNING jobs older than SWEEP_AFTER; a younger one may be a teammate's live job on the shared dev DB."""
     from sqlalchemy import update
 
     with SessionLocal() as db:
         r = db.execute(update(IngestionJob).where(IngestionJob.status.in_(["QUEUED", "RUNNING"]),
-                                                  IngestionJob.created_at < datetime.now(UTC) - STALE_AFTER)
+                                                  IngestionJob.created_at < datetime.now(UTC) - SWEEP_AFTER)
                        .values(status="FAILED", error=STALE_MESSAGE))
         db.commit()
         return r.rowcount or 0

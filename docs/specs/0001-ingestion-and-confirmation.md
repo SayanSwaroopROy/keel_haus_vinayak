@@ -32,7 +32,7 @@ Phase 1 already gives us the tables, login, roles, status machines and error for
 - **AC-9**: An engineer sees and changes only their own requisitions. The HOD sees all. A vendor gets 403. A file can be downloaded only by its uploader or the HOD.
 - **AC-10**: Text inside an uploaded document is data, never instructions. The AI output is validated against a fixed schema and whitelists. An invalid output is retried once, then the job fails safely.
 - **AC-11**: Code match returns the top matches with scores, a duplicates list (same code with different descriptions, or near identical descriptions under different codes), and a new code suggestion when no match is good enough. Only the HOD can set the final code.
-- **AC-12**: Upload returns 202 at once. The job status is pollable with its current step. A job still RUNNING or QUEUED after 10 minutes is marked FAILED, both at server startup and when its status is read (the dev database is shared, so a startup sweep never touches a recent job). A provider timeout makes the job FAILED with `provider_error` or `timeout` text.
+- **AC-12**: Upload returns 202 at once. The job status is pollable with its current step. A job still RUNNING or QUEUED is marked FAILED when its status is read after 10 minutes (`STALE_AFTER`), and by the startup sweep after 2 minutes (`SWEEP_AFTER`, in `app/ingest/pipeline.py`; the dev database is shared, so the sweep never touches a younger job). A provider timeout makes the job FAILED with `provider_error` or `timeout` text.
 - **AC-13**: Hindi, Bengali and English are detected (from the speech to text result, or from the AI for text), stored in `original_lang`, and used for the readback.
 
 ## Options considered

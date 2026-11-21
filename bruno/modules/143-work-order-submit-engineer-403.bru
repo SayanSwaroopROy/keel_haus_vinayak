@@ -1,0 +1,20 @@
+meta {
+  name: work order submit engineer 403
+  type: http
+  seq: 143
+}
+
+post {
+  url: {{baseUrl}}/work-orders/00000000-0000-0000-0000-000000000000/submit
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

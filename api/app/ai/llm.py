@@ -14,7 +14,8 @@ from app.errors import ApiError
 
 log = logging.getLogger("api.llm")
 T = TypeVar("T", bound=BaseModel)
-MODELS = {"vision": "OPENROUTER_MODEL_VISION", "chat": "OPENROUTER_MODEL_CHAT", "fast": "OPENROUTER_MODEL_FAST"}
+MODELS = {"vision": "OPENROUTER_MODEL_VISION", "chat": "OPENROUTER_MODEL_CHAT", "fast": "OPENROUTER_MODEL_FAST",
+          "recommendation": "OPENROUTER_MODEL_REASONING"}
 
 
 def _provider_error(e: Exception) -> ApiError:

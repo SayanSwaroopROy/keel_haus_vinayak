@@ -1,18 +1,15 @@
 """Tests hit the real dev DB (Neon). Every row they create is prefixed test_ and deleted afterwards."""
 
-import os
 import secrets
 import uuid
 from pathlib import Path
 
-os.environ.setdefault("JWT_SECRET", secrets.token_hex(16))  # per-run, never a real secret
-
-import bcrypt
 import httpx
 import pytest
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 
-from app.db import SessionLocal
+from app.db import SessionLocal, assert_destructive_ok
 from app.main import app
 from app.models import (
     AuditLog,
@@ -27,8 +24,9 @@ from app.models import (
     Vendor,
 )
 
+assert_destructive_ok()  # tests delete rows: refuse a non-dev DB
+
 PW = "test-" + secrets.token_hex(6)
-FAST_HASH = bcrypt.hashpw(PW.encode(), bcrypt.gensalt(rounds=4)).decode()  # cheap hash: tests log in a lot
 
 
 @pytest.fixture
@@ -50,8 +48,8 @@ def world():
         db.flush()
 
         def user(name, role, vendor=None, projects=()):
-            u = User(username=f"test_{name}_{tag}", name=f"test_{name}_{tag}", role=role, vendor_id=vendor.id if vendor else None,
-                     project_ids=[p.id for p in projects], password_hash=FAST_HASH)
+            u = User(name=f"test_{name}_{tag}", role=role, vendor_id=vendor.id if vendor else None,
+                     project_ids=[p.id for p in projects])
             db.add(u)
             return u
 
@@ -59,6 +57,7 @@ def world():
             "eng": user("eng", "site_engineer", projects=[proj]),
             "eng2": user("eng2", "site_engineer", projects=[proj]),
             "hod": user("hod", "hod", projects=[proj, other]),
+            "mgmt": user("mgmt", "management", projects=[proj, other]),
             "v1": user("v1", "vendor", v1, [proj]),
             "v2": user("v2", "vendor", v2, [proj]),
             "orphan": user("orphan", "vendor", None, [proj]),
@@ -68,7 +67,7 @@ def world():
         ids = {k: o.id for k, o in w.items()}
     yield {**w, "ids": ids, "pw": PW}
     with SessionLocal() as db:
-        uids = [ids[k] for k in ("eng", "eng2", "hod", "v1", "v2", "orphan")]
+        uids = [ids[k] for k in ("eng", "eng2", "hod", "mgmt", "v1", "v2", "orphan")]
         rids = [r for (r,) in db.execute(select(Requisition.id).where(Requisition.raised_by.in_(uids)))]
         files = list(db.scalars(select(SourceFile).where(SourceFile.uploaded_by.in_(uids))))
         db.execute(delete(Notification).where(Notification.ref_id.in_(rids)))  # also those sent to real HOD users
@@ -82,16 +81,23 @@ def world():
         db.execute(delete(SourceFile).where(SourceFile.uploaded_by.in_(uids)))
         for f in files:
             Path(f.path).unlink(missing_ok=True)
-        db.execute(delete(User).where(User.id.in_(uids)))
+        for _ in range(3):  # other sessions' tests can notify our users meanwhile (notify_hods): clear and retry
+            db.execute(delete(Notification).where(Notification.user_id.in_(uids)))
+            try:
+                with db.begin_nested():  # savepoint: keep the deletes above if this one fails
+                    db.execute(delete(User).where(User.id.in_(uids)))
+                break
+            except IntegrityError:
+                pass
+        else:
+            raise RuntimeError("could not delete test users (notifications keep arriving)")
         db.execute(delete(Vendor).where(Vendor.id.in_([ids["vendor1"], ids["vendor2"]])))
         db.execute(delete(Project).where(Project.id.in_([ids["proj"], ids["other"]])))
         db.commit()
 
 
-async def login(client, user, pw):
-    r = await client.post("/auth/login", json={"username": user.username, "password": pw})
-    assert r.status_code == 200, r.text
-    return {"Authorization": f"Bearer {r.json()['token']}"}
+async def login(client, user, pw=None):
+    return {"X-User-Id": str(user.id)}
 
 
 @pytest.fixture

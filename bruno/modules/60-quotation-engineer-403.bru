@@ -1,0 +1,24 @@
+meta {
+  name: quotation engineer 403
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/rfqs/00000000-0000-0000-0000-000000000000/quotations
+  body: json
+  auth: none
+}
+
+
+body:json {
+  { "items": [] }
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 403
+}

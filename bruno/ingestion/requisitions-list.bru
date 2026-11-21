@@ -7,11 +7,11 @@ meta {
 get {
   url: {{baseUrl}}/requisitions
   body: none
-  auth: bearer
+  auth: none
 }
 
-auth:bearer {
-  token: {{token_eng}}
+headers {
+  X-User-Id: {{id_eng}}
 }
 
 assert {

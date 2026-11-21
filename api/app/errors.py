@@ -10,7 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = logging.getLogger("api")
 
-_HTTP_CODES = {401: "unauthorized", 403: "forbidden", 404: "not_found", 405: "not_found", 409: "conflict",
+_HTTP_CODES = {400: "validation_error", 401: "unauthorized", 403: "forbidden", 404: "not_found", 405: "method_not_allowed", 409: "conflict",
                413: "file_too_large", 415: "unsupported_file", 422: "validation_error", 502: "provider_error",
                504: "timeout"}
 

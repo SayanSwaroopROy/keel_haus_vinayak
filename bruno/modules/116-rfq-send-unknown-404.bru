@@ -1,0 +1,20 @@
+meta {
+  name: rfq send unknown 404
+  type: http
+  seq: 116
+}
+
+post {
+  url: {{baseUrl}}/rfqs/00000000-0000-0000-0000-000000000000/send
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.code: eq not_found
+}

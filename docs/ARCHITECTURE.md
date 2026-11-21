@@ -3,7 +3,7 @@
 Approved technical assessment and plan (2026-11-21). Contracts: `API_CONTRACT.md`, `DATABASE_SCHEMA.md`, `EVENT_CONTRACT.md`.
 
 ## Context
-`FinalPrompt.md` asks for a full procurement platform with two interfaces: an Expo app (consumer and vendor roles) and an HOD web dashboard. The actual problem statement (`Vinayak.json` and the screenshot) asks for an agent covering 6 steps, from site requirement to vendor comparative, with a human making the final call. Rule: never email a real vendor.
+`FinalPrompt.md` asks for a full procurement platform with two interfaces: an Expo app (consumer and vendor roles) and an HOD web dashboard. The actual problem statement (`Vinayak.json` and the screenshot) asks for an agent covering 6 steps, from site requirement to vendor comparative, with a human making the final call. Rule: no email is sent at all; notifications are in-app only.
 
 Decisions confirmed:
 - **Hybrid EXPO + WEB.**
@@ -23,12 +23,12 @@ Role mapping:
 ## A. Existing repository assessment
 | Area | State |
 |---|---|
-| `api/` | FastAPI on Python 3.14 (uv). Has `/health` and `/echo`, pydantic, alembic (env reads `DATABASE_URL_UNPOOLED`) with no migrations yet, and 3 pytest tests via httpx ASGITransport. Dependencies already include openai, sarvamai, sqlalchemy, psycopg, pgvector, upstash-redis and langgraph (optional). **Missing:** python-multipart (needed for uploads), pypdf, openpyxl, python-docx, PyJWT, bcrypt. |
+| `api/` | FastAPI on Python 3.14 (uv). Has all routers (see `docs/API_CONTRACT.md`), pydantic, alembic migrations `0001`-`0006` (env reads `DATABASE_URL_UNPOOLED`) and pytest tests via httpx ASGITransport against the dev DB. No JWT, no passwords (identity is `X-User-Id`). |
 | `mobile/` | Expo SDK 58 template: expo-router (`src/app`: index, explore), TanStack Query, zustand, zod. No audio, camera or picker packages yet. One template lint error in `src/hooks/use-color-scheme.web.ts`. |
 | `web/` | Next.js 16.4, React 19.3, Tailwind 4, shadcn (only `button`), TanStack Query, react-hook-form, zod, vitest + supertest. Template page only. |
 | `bruno/` | Requests for health and echo. |
 | Docs | `AGENTS.md` and `docs/*` were committed on `setup/architecture`, written for EXPO-only with a 6-step scope. **They will be rewritten** for hybrid mode and the full scope. |
-| Infra (from `.env.example`) | Neon Postgres, OpenRouter (vision, chat, reasoning and embedding models), Sarvam (STT and TTS), Resend, Vercel/Upstash Blob, Supabase, Upstash Redis/QStash, ngrok. |
+| Infra (from `.env.example`) | Neon Postgres, OpenRouter (vision, chat, reasoning and embedding models), Sarvam (STT and TTS), Vercel/Upstash Blob, Supabase, Upstash Redis/QStash, ngrok. |
 
 Existing functionality: health and echo only. Everything else is missing.
 
@@ -41,7 +41,7 @@ What the schema takes from the client data:
 - **Tender document and RFQ email:** the RFQ format, long technical specs, and a fixed set of standard terms. The terms are loaded from local seed data, not committed.
 - **ERP item codes:** contain real duplicates (the same code with different meanings, plus near-duplicate descriptions). `item_codes` has no unique constraint on code, and the duplicate detector is demonstrated on this list.
 - **Contractor list:** names only. Categories, contact (test inbox) and status are added and labelled as inferred.
-- **4 real quotations:** 4 vendors, 4 layouts (digital with amounts, digital without amounts, handwritten scan, digital with brand alternatives). They differ on dates, quantities, units, GST treatment and terms. Problems to flag: expired offer, unit mismatch, quantities that differ from the tender, low-confidence handwriting, missing terms, open payment terms, brand substitution.
+- **4 real quotations:** 4 vendors, 4 layouts (digital with amounts, digital without amounts, handwritten scan, digital with brand alternatives). They differ on dates, quantities, units, GST treatment and terms. Problems to flag: expired offer, unit mismatch, quantities that differ from the tender, missing terms, open payment terms, brand substitution.
 - **Unit trap:** the client's own sheets use different SQM to SQFT factors. Use explicit conversion rules and keep the original quantity.
 - **Like-for-like rule:** reprice every vendor's rate at the **current tender quantities**, then add GST. Never compare their stated totals.
 
@@ -58,9 +58,8 @@ FinalPrompt over-specifies:
 ```
 Expo app (Site Engineer | Vendor roles) ─┐
                                           ├─HTTPS→ FastAPI :8000 ─→ Neon Postgres (+pgvector)
-Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter: vision OCR (handwriting/scans), extraction, embeddings, recommendation
+Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter: vision OCR (requisition handwriting and scans), extraction, embeddings, recommendation
                                                        ├─ Sarvam: STT (hi/bn/en) and TTS (read-back)
-                                                       ├─ Resend: RFQ copy to RFQ_TEST_INBOX only
                                                        └─ Local file store api/storage/ (gitignored)
 ```
 - One ngrok tunnel on web:3000. Next `rewrites` proxy `/api/*` to FastAPI, so the phone uses `https://<ngrok>/api` and the HOD uses the same origin. No CORS needed for web.
@@ -68,12 +67,12 @@ Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter:
   - `ponytail:` polling. Upgrade to SSE (`/events`) only if latency matters.
 - **Async ingestion** uses FastAPI `BackgroundTasks` plus an `ingestion_jobs` status row that the client polls.
   - `ponytail:` in-process. Move to QStash if the server restarts mid-job.
-- **Auth** uses seeded users with bcrypt passwords and a JWT bearer token. FastAPI dependencies `current_user` and `require_role(...)`. Every vendor query is filtered by `vendor_id = user.vendor_id` on the server.
+- **Identity (no login)**: seeded users, no passwords or JWT. The app shows a role picker (engineer, vendor with a vendor choice, HOD) and sends `X-User-Id`. FastAPI dependencies `current_user` and `require_role(...)` read that header. Every vendor query is filtered by `vendor_id = user.vendor_id` on the server.
 - **Files** are validated by extension and magic bytes (MIME sniffing) with a 20 MB limit, stored under a UUID name, with sha256 recorded. Originals are never modified.
 
 ## F. Database (ER summary; alembic migration `0001_init`)
 - **Org:** `projects` (3 real project names from local seed + 2 dummy = 5 active) · `users` (role: site_engineer | hod | vendor, `vendor_id` null unless vendor, `project_ids`)
-- **Catalogue:** `item_codes` (code, description, category, embedding; duplicate codes allowed) · `vendors` (name, categories[], brands[], contact_email = test inbox, status, `category_source` inferred|manual) · `vendor_performance` (project, quality, delivery, disputes 1–5, note, `is_dummy`)
+- **Catalogue:** `item_codes` (code, description, category, embedding; duplicate codes allowed) · `vendors` (name, categories[], brands[], registered, registration_checklist, status, `category_source` inferred|manual) · `vendor_performance` (project, quality, delivery, disputes 1–5, note, `is_dummy`)
 - **Ingestion:** `source_files` (kind, mime, path, sha256, page_count, uploaded_by) · `ingestion_jobs` (status, step, error, detected_lang, transcript, raw_text)
 - **Requisition:** `requisitions` (project, raised_by, input_type, original_lang, source_file_id, status, confirmed_at) · `requisition_revisions` (version, items_json, `actor`: ai|user, change_note: original extraction plus every correction) · `requisition_items`:
   - kind: work | material
@@ -82,21 +81,21 @@ Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter:
 - **Inventory:** `inventory_items` (project, material, uom, physical, reserved) · `inventory_reservations` (requisition_item_id, qty). Available = physical − reserved. Procure = max(0, requested − available). Uses `SELECT … FOR UPDATE` and is revalidated at WO time.
 - **RFQ:** `rfqs` (requisition_id, category, due_date, terms, status) · `rfq_items` · `rfq_vendors` (status RFQ_SENT → RFQ_VIEWED → VENDOR_RESPONDED → ALTERNATIVE_PROPOSED/APPROVED → QUOTATION_SUBMITTED)
 - **Comms:** `conversations` (rfq_id, vendor_id, status) · `messages` (sender_id, sender_role, type text|voice|system, text, transcript, audio_file_id, rfq_item_id, read_at) · `alternative_proposals` (rfq_item_id, original_spec, proposed_spec, brand, explanation, status, decided_by)
-- **Quotes:** `quotations` (rfq_vendor_id, source: app_form|uploaded_doc, source_file_id, quote_date, validity_days, gst_pct, gst_included, freight, payment_terms, advance_pct, start_days, warranty, escalation_clause, brands[], confidence, needs_review, flags[], extracted jsonb) · `quotation_items` (rfq_item_id, uom_quoted, qty_quoted, rate, amount, normalised_rate_per_rfq_uom, confidence, raw)
-- **Decision:** `evaluations` (rfq_id, weights, rows jsonb, recommendation jsonb with reasoning, hod_decision) · `work_orders` (wo_number `VG/<PROJ>/WO/<yy-yy>/<seq>`, vendor, items, taxes, totals, terms, approved_by, status) · `audit_log` (entity, id, from_status, to_status, actor, at, payload) · `notifications` (user_id, type, ref, read_at)
+- **Quotes:** `quotations` (rfq_vendor_id, source: app_form, quote_date, validity_days, gst_pct, gst_included, freight, payment_terms, advance_pct, start_days, warranty, escalation_clause, brands[], confidence, needs_review, flags[]) · `quotation_items` (rfq_item_id, uom_quoted, qty_quoted, rate, amount, normalised_rate_per_rfq_uom, confidence, raw)
+- **Decision:** `evaluations` (rfq_id, weights, rows jsonb, recommendation jsonb with per-item reasoning, item_selections jsonb) · `work_orders` (wo_number `VG/<PROJ>/WO/<yy-yy>/<seq>`, vendor, items, taxes, totals, terms, approved_by, status) · `audit_log` (entity, id, from_status, to_status, actor, at, payload) · `notifications` (user_id, type, ref, read_at)
 
 ## G. API (FastAPI; JSON; error format `{error:{code,message,details}}`)
-- Auth: `POST /auth/login`, `GET /me`
+- Identity: `GET /users` (role picker), `GET /me`
 - Ingest: `POST /ingest` (multipart file or audio; type, project) returns a job · `GET /ingest/{job}`
 - Requisitions: `GET/POST /requisitions` · `GET /requisitions/{id}` · `POST /requisitions/{id}/correct` (text or voice correction, creates a revision) · `POST /requisitions/{id}/readback` (returns TTS audio and text in the original language) · `POST /requisitions/{id}/confirm` · `POST /requisitions/{id}/match-codes` · `POST /requisitions/{id}/items/{iid}/code`
 - Inventory: `GET /inventory?project=` · `GET /requisitions/{id}/stock-check`
 - HOD: `POST /requisitions/{id}/decision` (approve | reject | clarify) · `GET /dashboard/stats`
 - Vendors: `GET/POST/PATCH /vendors` · `POST /vendors/{id}/performance`
-- RFQ: `POST /requisitions/{id}/rfqs` (auto-match vendors by category, enforce ≥3, HOD confirms the list) · `POST /rfqs/{id}/send` (in-app notification plus a Resend copy **only** to `RFQ_TEST_INBOX`) · `GET /rfqs` (vendor sees only own) · `GET /rfqs/{id}` (marks VIEWED)
+- RFQ: `POST /requisitions/{id}/rfqs` (auto-match vendors by category, enforce ≥3, HOD confirms the list) · `POST /rfqs/{id}/send` (in-app notification only; no email) · `GET /rfqs` (vendor sees only own) · `GET /rfqs/{id}` (marks VIEWED)
 - Chat: `GET /conversations` · `GET/POST /conversations/{id}/messages` (text, or multipart voice that is transcribed) · `POST /alternatives` · `POST /alternatives/{id}/decision`
-- Quotes: `POST /rfqs/{id}/quotations` (app form, or an uploaded PDF/scan through the ingestion pipeline) · `PATCH /quotations/{id}` (human correction) · `GET /rfqs/{id}/quotations`
-- Evaluate: `POST /rfqs/{id}/evaluation` · `POST /evaluations/{id}/select` (HOD only)
-- WO: `POST /evaluations/{id}/work-order` (revalidates stock, generates a WO number, notifies the vendor) · `GET /work-orders/{id}` · `GET /work-orders/{id}/pdf` (HTML-to-print view on web)
+- Quotes: `POST /rfqs/{id}/quotations` (app form only) · `PATCH /quotations/{id}` (human correction) · `GET /rfqs/{id}/quotations`
+- Evaluate: `POST /rfqs/{id}/evaluation` · `POST /evaluations/{id}/select` (HOD only, per line item) · `POST /rfqs/{id}/request-revision`
+- WO: `POST /evaluations/{id}/work-order` (one WO per selected vendor; needs the registration checklist complete; revalidates stock; generates WO numbers) · `POST /work-orders/{id}/submit` (HOD) · `POST /work-orders/{id}/approval` (management; approve floats the WO and notifies vendor and engineer) · `GET /work-orders/{id}` · `GET /work-orders/{id}/pdf` (HTML-to-print view on web)
 - Notifications: `GET /notifications`
 - Status transitions are enforced in one `transition(entity, to, actor)` helper that writes `audit_log`.
 
@@ -140,19 +139,35 @@ Uploaded content is treated as untrusted data. The extraction prompt fences it a
 - Transparent weights, editable by the HOD: price 50, past performance 20, spec/brand compliance 10, start/delivery 10, commercial terms (advance %, payment days, validity, escalation) 10.
 - Missing data scores as "unknown" and is shown, never guessed.
 - Badges: lowest price, best performance, fastest start, best overall.
-- The LLM writes the recommendation reasoning from the computed table only (no new numbers). The HOD selects; there is never an auto-pick. Charts use recharts on web (new dependency; already common with shadcn charts).
-- Expected demo result on the 4 real quotes (detail in the private notes): the cheapest quotes are expired, mis-unit or unverified handwriting, so the cheapest vendor is *not* automatically recommended. That is the pitch.
+- The LLM writes the recommendation reasoning from the computed table only (no new numbers). The HOD compares vendors line by line (quality against price) and selects a vendor per line item; there is never an auto-pick. Charts use recharts on web (new dependency; already common with shadcn charts).
+- Expected demo result on the 4 real quotes (detail in the private notes): the cheapest quotes are expired or mis-unit, so the cheapest vendor is *not* automatically recommended. That is the pitch.
+
+## L2. SOP flow map (the 12 steps against the build)
+| SOP step | How the product handles it |
+|---|---|
+| 1 BOQ receipt | Requisition ingestion (voice, image, file, text), Phase 2 |
+| 2 BOQ checking | Uncertain fields, clarification questions, HOD "clarify" |
+| 3 Corrected BOQ | Engineer corrects, new revision, re-confirms |
+| 4 Tender docs | RFQ items, specs and six standard terms |
+| 5 Tender floating, 3+ vendors | `POST /requisitions/{id}/rfqs` enforces 3+, HOD approves the send |
+| 6 Comparative Statement | Evaluation table in Vinayak format, with all quote rounds |
+| 7 Rate negotiation | HOD requests a revision; vendor resubmits the same form as round 2, 3 ...; the statement shows rounds |
+| 8 Management approval of the CS | The HOD decides per line item (quality vs price). Management does not approve the CS separately in v1. |
+| 9 Vendor registration | `vendors.registered` plus a checklist the HOD ticks; the WO is blocked until complete. No registration form is built. |
+| 10 WO creation | HOD creates one WO per selected vendor, only after the per-item selection |
+| 11 Management approval of the WO | `PENDING_APPROVAL`; a separate `management` identity approves or rejects |
+| 12 WO floating | Approval sets `SENT`; vendor app and engineer notified |
 
 ## M. Roadmap (each phase ends demo-able; `ponytail` cuts noted)
 | Phase | Modules | Files (representative) | DB | Dependencies | Tests |
 |---|---|---|---|---|---|
 | 0 Contracts | Rewrite AGENTS.md (hybrid) and docs/*; root scripts; ngrok via web rewrite | `AGENTS.md`, `docs/*`, `web/next.config.ts` | – | – | existing pass |
-| 1 Backend core | DB, auth, roles, audit, seed | `api/app/{db,models,auth,audit}.py`, `api/migrations/versions/0001_init.py`, `api/scripts/seed.py` | all tables | python-multipart, PyJWT, bcrypt | auth/role pytest |
+| 1 Backend core | DB, identity, roles, audit, seed | `api/app/{db,models,auth,audit}.py`, `api/migrations/versions/0001_init.py`, `api/scripts/seed.py` | all tables | python-multipart | auth/role pytest |
 | 2 Ingestion + confirm (P1) | ingest, extract, readback, correct, code-match | `api/app/ingest/*`, `api/app/routes/requisitions.py` | – | pypdf, pypdfium2, openpyxl, python-docx | per-format fixtures, unit traps |
-| 3 Mobile: Site Engineer | role select, login, record, camera, upload, progress, confirm, history | `mobile/src/app/(auth)/*`, `(engineer)/*`, `mobile/src/lib/api.ts` | – | expo-audio, expo-image-picker, expo-document-picker, expo-camera, expo-secure-store (all Expo Go) | typecheck, phone test |
+| 3 Mobile: Site Engineer | role picker, record, camera, upload, progress, confirm, history | `mobile/src/app/(auth)/*`, `(engineer)/*`, `mobile/src/lib/api.ts` | – | expo-audio, expo-image-picker, expo-document-picker, expo-camera, expo-secure-store (all Expo Go) | typecheck, phone test |
 | 4 HOD web core (P2) | sidebar, stats, requisitions, stock check, approve | `web/src/app/(hod)/*`, shadcn table/card/badge/dialog | – | shadcn components | vitest + Bruno |
 | 5 Vendors + RFQ + chat (P3) | vendor app tabs, RFQ detail, concerns, chat, alternatives; HOD conversation centre | `mobile/src/app/(vendor)/*`, `web/src/app/(hod)/conversations` | – | – | vendor isolation tests |
-| 6 Quotes + evaluation + WO (P4) | app quote form, uploaded quote normalisation (4 real PDFs), comparison, select, WO, notification | `api/app/routes/{quotes,evaluations,work_orders}.py`, `web/.../compare`, `web/.../work-orders` | – | recharts | the 4 real quotes are the golden test |
+| 6 Quotes + evaluation + WO (P4) | app quote form (4 real quotes entered by hand), comparison, select, WO, notification | `api/app/routes/{quotes,evaluations,work_orders}.py`, `web/.../compare`, `web/.../work-orders` | – | recharts | the 4 real quotes are the golden test |
 | 7 Integrate + demo | ngrok, e2e script, docs | `docs/LOCAL_DEVELOPMENT.md`, `bruno/*` | – | – | full §21 list |
 
 Team split: BACKEND owns `api/` and `bruno/`. FRONTEND owns `mobile/` and then `web/` (phases 3–6 alternate). If there's a third person, they take `web/`.
@@ -163,18 +178,18 @@ Team split: BACKEND owns `api/` and `bruno/`. FRONTEND owns `mobile/` and then `
 3. ERP codes are matched and duplicates flagged (real conflicting ERP code). Stock check runs on the client-supplied cement and sand.
 4. The HOD approves on web. RFQs go to the 4 waterproofing vendors (in app, plus a copy to the test inbox).
 5. A vendor sends a voice concern proposing an alternative brand. It appears on web; the HOD replies and accepts the alternative.
-6. Vendors submit: one through the app form, and the **4 real PDFs uploaded** and normalised, with expired, unit-mismatch and handwritten items flagged.
-7. Comparative statement plus recommendation with reasoning. The HOD picks, the WO is generated, and the vendor app shows the order.
+6. Vendors submit through the app quotation form (the demo enters the 4 real quotes by hand, one per vendor). Expired and unit-mismatch items are flagged.
+7. Comparative statement plus recommendation with reasoning. The HOD selects a vendor per line item after weighing quality against price, ticks the vendor registration checklist, creates the WO and submits it. Management approves, and only then does the vendor app show the order.
 8. Backup: a seeded "golden" state at each step via the seed script, in case a live AI call fails during the pitch.
 
 ## O. Risks and mitigation
 - **Scope (highest).** The full FinalPrompt is too much for one day. Build phases in priority order and keep each phase demo-able. Seed fallback state. Cut DOC/RTF/ODT and SSE first.
-- **LLM/OCR accuracy on scans and handwriting.** Confidence plus a mandatory human review field.
+- **LLM/OCR accuracy on requisition scans and handwriting.** Confidence plus a mandatory human review field.
 - **Sarvam Bengali TTS/STT latency.** 30 s timeout; text fallback on screen.
 - **Phone networking.** One ngrok tunnel through Next rewrites; test early.
 - **Python 3.14 wheels** for pypdfium2, bcrypt and psycopg. Verify on install (phase 1).
 - **Confidential data.** The seed reads `vinayak-vch3-data/` locally at runtime. Nothing derived from it is committed. Uploaded files sit in a gitignored `api/storage/`.
-- **Real vendor contacts in the PDFs** (emails, phones). Never stored as vendor contacts. All vendor emails = `RFQ_TEST_INBOX`.
+- **Real vendor contacts in the data pack** (emails, phones). Never stored. No email is sent.
 
 ## P. Complexity
 | Phase | Effort |
@@ -194,9 +209,8 @@ Critical path: 1 → 2 → 6 (backend). Mobile and web can mock against the cont
   - Sarvam STT/TTS
   - OpenRouter vision OCR, extraction, embeddings and reasoning
   - Postgres with inventory transactions
-  - JWT role auth
+  - Role picker identity (no login)
   - File validation and storage
-  - Resend email to the test inbox
 - **Simulated / dummy, labelled in the UI:**
   - Vendor performance history
   - Inventory stock levels
@@ -210,7 +224,7 @@ Critical path: 1 → 2 → 6 (backend). Mobile and web can mock against the cont
   - FinalPrompt chat "real time" (2–3 s polling)
 
 ## Dummy data to create (matching Vinayak's formats, in `api/seed/dummy/*.json`, committed because it's invented)
-- Users: 2 site engineers, 1 HOD, 1 login per vendor. Generic names, not the real names from the emails.
+- Users: 2 site engineers, 1 HOD, 1 management (web only), 1 identity per vendor. Generic names, not the real names from the emails.
 - Inventory per project: BOM materials with exact UOM (CFT/SQM/NOS/RMT) plus cement (bags) and sand (CFT). Covers full, partial and zero stock.
 - Vendor performance rows for the real vendors (names loaded from local seed), labelled `is_dummy`.
 - Vendor categories for contractor-list names (Waterproofing, Road/Civil, Testing Lab, Electrical…).

@@ -30,17 +30,25 @@ class Checked:
 
 
 def _sig(name: str, b: bytes) -> bool:
+    ff = len(b) >= 2 and b[0] == 0xFF  # short files must fail the check (415), not raise IndexError
     return {
         "jpeg": b[:3] == b"\xff\xd8\xff", "png": b[:8] == b"\x89PNG\r\n\x1a\n",
         "webp": b[:4] == b"RIFF" and b[8:12] == b"WEBP", "pdf": b[:5] == b"%PDF-", "zip": b[:2] == b"PK",
-        "wav": b[:4] == b"RIFF" and b[8:12] == b"WAVE", "mp3": b[:3] == b"ID3" or (b[0] == 0xFF and b[1] & 0xE0 == 0xE0),
-        "mp4": b[4:8] == b"ftyp", "aac": b[0] == 0xFF and b[1] & 0xF0 == 0xF0, "ogg": b[:4] == b"OggS",
+        "wav": b[:4] == b"RIFF" and b[8:12] == b"WAVE", "mp3": b[:3] == b"ID3" or (ff and b[1] & 0xE0 == 0xE0),
+        "mp4": b[4:8] == b"ftyp", "aac": ff and b[1] & 0xF0 == 0xF0, "ogg": b[:4] == b"OggS",
         "webm": b[:4] == b"\x1a\x45\xdf\xa3", "flac": b[:4] == b"fLaC", "caf": b[:4] == b"caff",
         "text": b"\x00" not in b[:4096],  # text files must not look binary
     }[name]
 
 
 _MIME = {"jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "pdf": "application/pdf"}
+EXT_MIME = {
+    ".wav": "audio/wav", ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".mp4": "audio/mp4", ".aac": "audio/aac",
+    ".ogg": "audio/ogg", ".webm": "audio/webm", ".flac": "audio/flac", ".caf": "audio/x-caf",
+    ".csv": "text/csv", ".txt": "text/plain",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 
 
 def unsupported(ext: str) -> ApiError:
@@ -59,7 +67,7 @@ def check(filename: str, head: bytes, size: int) -> Checked:
     kind, sig = ALLOWED[ext]
     if size == 0 or not _sig(sig, head):
         raise ApiError(415, "unsupported_file", "The file content does not match its extension", [{"accepted": ACCEPTED}])
-    return Checked(ext, kind, _MIME.get(sig, "application/octet-stream"))
+    return Checked(ext, kind, EXT_MIME.get(ext) or _MIME.get(sig, "application/octet-stream"))
 
 
 def check_zip(path: Path) -> None:

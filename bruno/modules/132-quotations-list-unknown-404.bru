@@ -1,0 +1,20 @@
+meta {
+  name: quotations list unknown 404
+  type: http
+  seq: 132
+}
+
+get {
+  url: {{baseUrl}}/rfqs/00000000-0000-0000-0000-000000000000/quotations
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.code: eq not_found
+}

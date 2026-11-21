@@ -5,13 +5,11 @@ Sources (nothing confidential is committed):
 - api/seed/local/*.json   gitignored, real project/vendor names for this machine
 - vinayak-vch3-data/      gitignored client pack: ERP item codes + contractor list (read at runtime)
 
-Env: RFQ_TEST_INBOX (all vendor emails), SEED_PASSWORD (else random, printed once; reseeding resets it).
+No env needed (vendors store no email).
 """
 
 import json
-import os
 import re
-import secrets
 import sys
 from pathlib import Path
 
@@ -20,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import hash_password
 from app.db import SessionLocal
 from app.models import (
     InventoryItem,
@@ -30,6 +27,7 @@ from app.models import (
     Vendor,
     VendorPerformance,
 )
+from app.vendor_checklist import default_checklist
 
 API = Path(__file__).resolve().parents[1]
 DUMMY, LOCAL = API / "seed" / "dummy", API / "seed" / "local"
@@ -75,7 +73,7 @@ def seed_projects(db: Session) -> list[Project]:
     return list(db.scalars(select(Project)))
 
 
-def upsert_vendor(db: Session, v: dict, inbox: str | None, is_dummy: bool, source: str) -> Vendor:
+def upsert_vendor(db: Session, v: dict, is_dummy: bool, source: str) -> Vendor:
     row = db.scalar(select(Vendor).where(Vendor.name == v["name"]))
     cats = v.get("categories") or infer_category(v["name"])
     if not row:
@@ -87,16 +85,20 @@ def upsert_vendor(db: Session, v: dict, inbox: str | None, is_dummy: bool, sourc
     if row.category_source != "manual":
         row.categories = cats
     row.brands = v.get("brands", row.brands or [])
-    row.contact_email, row.is_dummy = inbox, is_dummy
+    row.is_dummy = is_dummy
+    if not row.registration_checklist:
+        row.registration_checklist = default_checklist()
+    if is_dummy:  # demo vendors are pre-registered so WO generation is not blocked by vendor_not_registered
+        row.registration_checklist = [{**i, "done": True} for i in row.registration_checklist]
     db.flush()
     return row
 
 
-def seed_vendors(db: Session, projects: list[Project], inbox: str | None) -> list[Vendor]:
+def seed_vendors(db: Session, projects: list[Project]) -> list[Vendor]:
     login_vendors: list[Vendor] = []
     for items, is_dummy in ((load(DUMMY, "vendors.json"), True), (load(LOCAL, "vendors.json"), False)):
         for v in items:
-            row = upsert_vendor(db, v, inbox, is_dummy, "manual")
+            row = upsert_vendor(db, v, is_dummy, "manual")
             login_vendors.append(row)
             if v.get("perf") and not db.scalar(select(VendorPerformance).where(VendorPerformance.vendor_id == row.id)):
                 q, d, x = v["perf"]
@@ -111,7 +113,7 @@ def seed_vendors(db: Session, projects: list[Project], inbox: str | None) -> lis
         ws = openpyxl.load_workbook(xlsx, read_only=True, data_only=True).active
         for (name,) in ws.iter_rows(min_row=2, max_col=1, values_only=True):
             if name and str(name).strip():
-                upsert_vendor(db, {"name": str(name).strip()}, inbox, False, "inferred")
+                upsert_vendor(db, {"name": str(name).strip()}, False, "inferred")
                 n += 1
     print(f"vendors: {len(login_vendors)} demo/login, {n} from contractor list")
     return login_vendors
@@ -133,7 +135,33 @@ def seed_item_codes(db: Session) -> None:
             db.add(ItemCode(code=code, description=desc, category="Waterproofing"))
             existing.add((code, desc))
             added += 1
-    print(f"item_codes: +{added} (embeddings are added in phase 2)")
+    print(f"item_codes: +{added}")
+
+
+def seed_rfq_terms() -> None:
+    """Numbered terms from the sample RFQ email in the local pack -> api/seed/local/rfq_terms.json (gitignored)."""
+    import re
+
+    from app.terms import TERMS_FILE
+
+    src = next((PACK / "03_tender").glob("*.txt"), None)
+    if not src:
+        print("rfq_terms: SKIPPED (client pack not found)")
+        return
+    terms = [m.group(1).strip() for line in src.read_text().splitlines() if (m := re.match(r"^\d+\.\s+(.+)$", line.strip()))]
+    TERMS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TERMS_FILE.write_text(json.dumps(terms, ensure_ascii=False, indent=2))
+    print(f"rfq_terms: {len(terms)} standard terms")
+
+
+def embed_item_codes(db: Session) -> None:
+    """Batch embeddings for every ERP row that has none. Needs OpenRouter; a failure is reported, not fatal."""
+    from app import codes
+
+    try:
+        print(f"item_code embeddings: +{codes.ensure_embeddings(db)}")
+    except Exception as e:  # noqa: BLE001 - seed must still finish; match-codes retries on first use
+        print(f"item_code embeddings: SKIPPED ({type(e).__name__})")
 
 
 def seed_inventory(db: Session, projects: list[Project]) -> None:
@@ -147,32 +175,32 @@ def seed_inventory(db: Session, projects: list[Project]) -> None:
                                      reserved=s["reserved"], is_dummy=True))
 
 
-def seed_users(db: Session, projects: list[Project], vendors: list[Vendor], password: str) -> None:
-    pids = [p.id for p in projects]
-    pw = hash_password(password)
-    people = [(u["username"], u["name"], u["role"], None) for u in load(DUMMY, "users.json")]
-    people += [(f"v_{slug(v.name)}", f"{v.name} (login)", "vendor", v.id) for v in vendors]
-    for username, name, role, vendor_id in people:
-        row = db.scalar(select(User).where(User.username == username)) or User(username=username)
-        row.name, row.role, row.vendor_id, row.project_ids, row.password_hash = name, role, vendor_id, pids, pw
+def seed_users(db: Session, projects: list[Project], vendors: list[Vendor]) -> None:
+    pids = [p.id for p in sorted(projects, key=lambda p: p.code)]
+    # ponytail: engineers/vendors get the first half of the projects so scoping is testable; HOD/management see all
+    subset = pids[:max(1, len(pids) // 2)]
+    people = [(u["name"], u["role"], None) for u in load(DUMMY, "users.json")]
+    people += [(v.name, "vendor", v.id) for v in vendors]
+    for name, role, vendor_id in people:
+        # vendor users match by vendor_id too, so rows once named "<vendor> (login)" are renamed, not duplicated
+        row = (db.scalars(select(User).where(User.vendor_id == vendor_id)).first() if vendor_id else None) \
+            or db.scalars(select(User).where(User.name == name)).first() or User()
+        row.name, row.role, row.vendor_id = name, role, vendor_id
+        row.project_ids = pids if role in ("hod", "management") else subset
         db.add(row)
     print("users:", ", ".join(u[0] for u in people))
 
 
 def main() -> None:
-    inbox = os.environ.get("RFQ_TEST_INBOX")
-    if not inbox:
-        print("WARNING: RFQ_TEST_INBOX not set; vendor contact_email left empty (RFQs cannot be emailed)")
-    password = os.environ.get("SEED_PASSWORD") or secrets.token_urlsafe(9)
     with SessionLocal() as db:
         projects = seed_projects(db)
-        vendors = seed_vendors(db, projects, inbox)
+        vendors = seed_vendors(db, projects)
         seed_item_codes(db)
+        embed_item_codes(db)
+        seed_rfq_terms()
         seed_inventory(db, projects)
-        seed_users(db, projects, vendors, password)
+        seed_users(db, projects, vendors)
         db.commit()
-    if not os.environ.get("SEED_PASSWORD"):
-        print(f"\nDemo login password (shown once, all seeded users): {password}")
     print("seed: done")
 
 

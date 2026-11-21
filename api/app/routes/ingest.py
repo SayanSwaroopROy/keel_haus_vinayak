@@ -8,17 +8,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.access import STAFF, check_project, deny, own_or_hod
 from app.auth import current_user, require_role
 from app.db import get_db
-from app.errors import ApiError, forbidden, not_found
+from app.errors import ApiError, not_found
 from app.ingest import pipeline, validate
-from app.models import IngestionJob, Project, SourceFile, User
+from app.models import Conversation, IngestionJob, Message, Requisition, Rfq, SourceFile, User
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
@@ -48,15 +50,6 @@ def job_out(j: IngestionJob) -> JobOut:
                   requisition_id=j.requisition_id)
 
 
-def check_project(db: Session, user: User, pid: uuid.UUID) -> Project:
-    p = db.get(Project, pid)
-    if not p:
-        raise not_found("Project not found")
-    if user.role != "hod" and pid not in (user.project_ids or []):
-        raise forbidden("You are not assigned to this project")
-    return p
-
-
 def lang_hint(lang: str | None) -> str | None:
     if lang and lang not in LANG_OK:
         raise ApiError(422, "validation_error", "lang must be bn, hi or en")
@@ -79,7 +72,7 @@ def store(db: Session, user: User, data: bytes, filename: str, kind: str, mime: 
 
 
 @router.post("/ingest", status_code=202, response_model=JobOut)
-def ingest(user: Staff, db: DB, tasks: BackgroundTasks, file: Annotated[UploadFile, File()],
+def ingest(user: Staff, db: DB, tasks: BackgroundTasks, response: Response, file: Annotated[UploadFile, File()],
            project_id: Annotated[uuid.UUID, Form()], input_type: Annotated[str | None, Form()] = None,
            lang: Annotated[str | None, Form()] = None) -> JobOut:
     check_project(db, user, project_id)
@@ -93,8 +86,21 @@ def ingest(user: Staff, db: DB, tasks: BackgroundTasks, file: Annotated[UploadFi
             store(db, user, data, name, "other", "application/octet-stream", ".bin")
             db.commit()
         raise
+    itype = INPUT_TYPES.get(info.kind, info.kind)
+    if input_type and INPUT_TYPES.get(input_type, input_type) != itype:
+        raise ApiError(422, "validation_error", f"input_type '{input_type}' does not match the file, which is {itype}")
+    digest = hashlib.sha256(data).hexdigest()
+    prev = db.scalars(select(IngestionJob).join(SourceFile, SourceFile.id == IngestionJob.source_file_id)
+                      .outerjoin(Requisition, Requisition.id == IngestionJob.requisition_id)
+                      .where(IngestionJob.created_by == user.id, IngestionJob.project_id == project_id,
+                             SourceFile.sha256 == digest, IngestionJob.status != "FAILED",
+                             or_(Requisition.id.is_(None), Requisition.status.notin_(["CANCELLED", "REJECTED"])))
+                      .order_by(IngestionJob.created_at.desc()).limit(1)).first()
+    if prev:  # same upload again (double tap, retry): hand back the existing job instead of a second requisition
+        response.status_code = 200
+        return job_out(prev)
     sf = store(db, user, data, name, info.kind, info.mime, info.ext)
-    job = IngestionJob(source_file_id=sf.id, project_id=project_id, input_type=INPUT_TYPES.get(info.kind, info.kind),
+    job = IngestionJob(source_file_id=sf.id, project_id=project_id, input_type=itype,
                        lang_hint=hint, status="QUEUED", step="validate", created_by=user.id)
     db.add(job)
     db.commit()
@@ -119,12 +125,22 @@ def get_job(job_id: uuid.UUID, user: Staff, db: DB) -> JobOut:
     j = db.get(IngestionJob, job_id)
     if not j:
         raise not_found("Job not found")
-    if user.role != "hod" and j.created_by != user.id:
-        raise forbidden("This job belongs to someone else")
+    own_or_hod(user, j.created_by)
     if j.status in ("QUEUED", "RUNNING") and datetime.now(UTC) - j.created_at > pipeline.STALE_AFTER:
         j.status, j.error = "FAILED", pipeline.STALE_MESSAGE  # lazy timeout: covers a restart that the sweep missed
         db.commit()
     return job_out(j)
+
+
+def _can_read(db: Session, user: User, sf: SourceFile) -> bool:
+    """Uploader, HOD or management, or a participant of a conversation holding this file as a voice message."""
+    if user.role in STAFF or sf.uploaded_by == user.id:
+        return True
+    q = select(Conversation.vendor_id, Requisition.raised_by).join(Message, Message.conversation_id == Conversation.id) \
+        .join(Rfq, Rfq.id == Conversation.rfq_id).join(Requisition, Requisition.id == Rfq.requisition_id) \
+        .where(Message.audio_file_id == sf.id)
+    return any((user.role == "vendor" and user.vendor_id and vid == user.vendor_id)
+               or (user.role == "site_engineer" and owner == user.id) for vid, owner in db.execute(q))
 
 
 @router.get("/files/{file_id}")
@@ -132,10 +148,10 @@ def get_file(file_id: uuid.UUID, user: Me, db: DB):
     sf = db.get(SourceFile, file_id)
     if not sf:
         raise not_found("File not found")
-    if user.role != "hod" and sf.uploaded_by != user.id:
-        raise forbidden("You cannot open this file")
+    if not _can_read(db, user, sf):
+        raise deny()
     p = Path(sf.path)
     if not p.is_file():
         return JSONResponse({"error": {"code": "not_found", "message": "File is missing", "details": []}}, 404)
-    return FileResponse(p, media_type=sf.mime or "application/octet-stream", filename=sf.filename,
+    return FileResponse(p, media_type=validate.EXT_MIME.get(Path(sf.filename).suffix.lower()) or sf.mime or "application/octet-stream", filename=sf.filename,
                         content_disposition_type="attachment", headers={"X-Content-Type-Options": "nosniff"})

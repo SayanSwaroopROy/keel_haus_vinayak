@@ -66,7 +66,8 @@ class Vendor(Base):
     category_source: Mapped[str] = mapped_column(String, default="inferred")  # inferred | manual
     brands: Mapped[list[str]] = mapped_column(Arr, default=list)
     status: Mapped[str] = mapped_column(String, default="active")
-    contact_email: Mapped[str | None] = mapped_column(String)  # always RFQ_TEST_INBOX
+    registered: Mapped[bool] = mapped_column(Boolean, default=False)
+    registration_checklist: Mapped[Any] = mapped_column(JSONB, default=list)  # [{label, done}]
     is_dummy: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at = ts()
     __table_args__ = (Index("ix_vendors_categories", "categories", postgresql_using="gin"),)
@@ -75,14 +76,12 @@ class Vendor(Base):
 class User(Base):
     __tablename__ = "users"
     id = pk()
-    username: Mapped[str] = mapped_column(String, unique=True)
     name: Mapped[str] = mapped_column(String)
-    password_hash: Mapped[str] = mapped_column(String)
-    role: Mapped[str] = mapped_column(String)  # site_engineer | hod | vendor
+    role: Mapped[str] = mapped_column(String)  # site_engineer | hod | management | vendor
     vendor_id: Mapped[uuid.UUID | None] = fk("vendors", nullable=True)
     project_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), default=list)
     created_at = ts()
-    __table_args__ = (CheckConstraint("role in ('site_engineer','hod','vendor')", name="ck_users_role"),)
+    __table_args__ = (CheckConstraint("role in ('site_engineer','hod','management','vendor')", name="ck_users_role"),)
 
 
 class VendorPerformance(Base):
@@ -139,6 +138,7 @@ class Requisition(Base):
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decision_note: Mapped[str | None] = mapped_column(Text)
     created_at = ts()
+    __table_args__ = (Index("ix_requisitions_raised_by", "raised_by"),)
 
 
 class RequisitionItem(Base):
@@ -256,7 +256,7 @@ class RfqVendor(Base):
     id = pk()
     rfq_id = fk("rfqs")
     vendor_id = fk("vendors")
-    status: Mapped[str] = mapped_column(String, default="RFQ_SENT")
+    status: Mapped[str] = mapped_column(String, default="DRAFT")
     viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at = ts()
     __table_args__ = (UniqueConstraint("rfq_id", "vendor_id"),)
@@ -309,7 +309,8 @@ class Quotation(Base):
     id = pk()
     rfq_id = fk("rfqs")
     vendor_id = fk("vendors")
-    source: Mapped[str] = mapped_column(String)  # app_form | uploaded_doc
+    round: Mapped[int] = mapped_column(Integer, default=1)
+    source: Mapped[str] = mapped_column(String, default="app_form")
     source_file_id = fk("source_files", nullable=True)
     status: Mapped[str] = mapped_column(String, default="SUBMITTED")
     quote_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -328,7 +329,7 @@ class Quotation(Base):
     remarks: Mapped[str | None] = mapped_column(Text)
     extracted: Mapped[Any] = mapped_column(JSONB, nullable=True)
     created_at = ts()
-    __table_args__ = (UniqueConstraint("rfq_id", "vendor_id"),)
+    __table_args__ = (UniqueConstraint("rfq_id", "vendor_id", "round"),)
 
 
 class QuotationItem(Base):
@@ -354,7 +355,7 @@ class Evaluation(Base):
     weights: Mapped[Any] = mapped_column(JSONB)
     rows: Mapped[Any] = mapped_column(JSONB)
     recommendation: Mapped[Any] = mapped_column(JSONB, nullable=True)
-    selected_vendor_id = fk("vendors", nullable=True)
+    item_selections: Mapped[Any] = mapped_column(JSONB, nullable=True)  # [{rfq_item_id, vendor_id}]
     hod_note: Mapped[str | None] = mapped_column(Text)
     created_at = ts()
 
@@ -372,7 +373,10 @@ class WorkOrder(Base):
     freight: Mapped[float] = mapped_column(Numeric, default=0)
     total: Mapped[float] = mapped_column(Numeric)
     terms: Mapped[list[str]] = mapped_column(Arr, default=list)
-    approved_by = fk("users")
+    created_by = fk("users", nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by = fk("users", nullable=True)
+    approval_note: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String, default="GENERATED")
     created_at = ts()
 

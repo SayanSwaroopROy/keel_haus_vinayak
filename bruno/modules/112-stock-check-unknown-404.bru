@@ -1,0 +1,20 @@
+meta {
+  name: stock-check unknown 404
+  type: http
+  seq: 112
+}
+
+get {
+  url: {{baseUrl}}/requisitions/00000000-0000-0000-0000-000000000000/stock-check
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.code: eq not_found
+}

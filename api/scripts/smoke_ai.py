@@ -3,12 +3,11 @@
   terminal 1:  pnpm dev:api
   terminal 2:  cd api && uv run python scripts/smoke_ai.py [--keep] [--base http://127.0.0.1:8000]
 
-Logs in with SEED_PASSWORD as engineer1 and hod. Creates requisitions, then deletes them unless --keep.
+Acts as the first site_engineer from GET /users (header X-User-Id, no login). Creates requisitions, then deletes them unless --keep.
 Client documents (vinayak-vch3-data/) are used only if present on this machine; nothing from them is printed beyond counts.
 """
 
 import io
-import os
 import sys
 import time
 from pathlib import Path
@@ -31,10 +30,10 @@ def check(name: str, ok: bool, note: str = "") -> None:
     print(f"  {'PASS' if ok else 'FAIL'}  {name}  {note}")
 
 
-def login(c: httpx.Client, user: str) -> dict:
-    r = c.post("/auth/login", json={"username": user, "password": os.environ["SEED_PASSWORD"]})
-    r.raise_for_status()
-    return {"Authorization": f"Bearer {r.json()['token']}"}, r.json()["user"]
+def login(c: httpx.Client, role: str):
+    # no login: pick a seeded user from GET /users, send X-User-Id
+    me = next(u for u in c.get("/users", params={"role": role}).json() if u["role"] == role)
+    return {"X-User-Id": me["id"]}, me
 
 
 def finish(c, h, job_id, timeout=180):
@@ -61,7 +60,7 @@ def main() -> int:
     if c.get("/health").status_code != 200:
         print("server not running at", BASE)
         return 2
-    h, me = login(c, "engineer1")
+    h, me = login(c, "site_engineer")
     pid = me["project_ids"][0]
 
     def upload(name, data, **form):

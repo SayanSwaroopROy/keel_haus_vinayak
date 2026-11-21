@@ -3,9 +3,10 @@
 import hashlib
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -13,17 +14,30 @@ from sqlalchemy.orm import Session
 
 from app import ai, codes
 from app import requisitions as svc
+from app.access import deny
 from app.auth import require_role
 from app.db import get_db
 from app.errors import ApiError
 from app.ingest import pipeline, validate
-from app.models import Requisition, RequisitionRevision, SourceFile, User
-from app.transitions import audit
+from app.models import (
+    InventoryItem,
+    InventoryReservation,
+    Requisition,
+    RequisitionItem,
+    RequisitionRevision,
+    SourceFile,
+    User,
+)
+from app.models import ItemCode
+from app.transitions import MACHINES, audit, transition
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
 Staff = Annotated[User, Depends(require_role("site_engineer", "hod"))]
-Engineer = Annotated[User, Depends(require_role("site_engineer"))]
+Reader = Annotated[User, Depends(require_role("site_engineer", "hod", "management"))]  # management: read-only
+# Engineer routes also accept an HOD, but only for a requisition the HOD raised themself (POST /ingest allows an HOD
+# upload, so that HOD must be able to read back, correct, confirm and edit it). Any other HOD gets 403 via mine().
+Engineer = Annotated[User, Depends(require_role("site_engineer", "hod"))]
 Hod = Annotated[User, Depends(require_role("hod"))]
 
 
@@ -68,7 +82,7 @@ class RequisitionOut(BaseModel):
 class ReadbackOut(BaseModel):
     text: str
     lang: str
-    audio_url: str
+    audio_url: str | None  # null when speech synthesis failed: the text is still returned
 
 
 class RevisionOut(BaseModel):
@@ -82,6 +96,12 @@ class RevisionOut(BaseModel):
 class CodeIn(BaseModel):
     item_code: str | None = None
     new_code: str | None = None
+
+
+def mine(user: User, req: Requisition) -> Requisition:
+    if user.role == "hod" and req.raised_by != user.id:
+        raise deny()
+    return req
 
 
 async def read_input(request: Request) -> tuple[dict, tuple[bytes, str] | None]:
@@ -109,22 +129,25 @@ async def read_input(request: Request) -> tuple[dict, tuple[bytes, str] | None]:
 
 
 @router.get("/requisitions", response_model=list[RequisitionOut])
-def list_requisitions(user: Staff, db: DB, status: str | None = None):
-    q = select(Requisition).order_by(Requisition.created_at.desc()).limit(200)
-    if user.role != "hod":
+def list_requisitions(user: Reader, db: DB, status: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200,
+                      offset: Annotated[int, Query(ge=0)] = 0):
+    q = select(Requisition).order_by(Requisition.created_at.desc(), Requisition.id).limit(limit).offset(offset)
+    if user.role == "site_engineer":
         q = q.where(Requisition.raised_by == user.id)
     if status:
+        if status not in MACHINES["requisition"]:
+            raise ApiError(422, "validation_error", "Unknown status", [{"allowed": sorted(MACHINES["requisition"])}])
         q = q.where(Requisition.status == status)
     return [svc.req_out(db, r) for r in db.scalars(q)]
 
 
 @router.get("/requisitions/{rid}", response_model=RequisitionOut)
-def get_requisition(rid: uuid.UUID, user: Staff, db: DB):
+def get_requisition(rid: uuid.UUID, user: Reader, db: DB):
     return svc.req_out(db, svc.get_owned(db, user, rid))
 
 
 @router.get("/requisitions/{rid}/revisions", response_model=list[RevisionOut])
-def revisions(rid: uuid.UUID, user: Staff, db: DB):
+def revisions(rid: uuid.UUID, user: Reader, db: DB):
     req = svc.get_owned(db, user, rid)
     return list(db.scalars(select(RequisitionRevision).where(RequisitionRevision.requisition_id == req.id)
                            .order_by(RequisitionRevision.version)))
@@ -132,13 +155,23 @@ def revisions(rid: uuid.UUID, user: Staff, db: DB):
 
 @router.post("/requisitions/{rid}/readback", response_model=ReadbackOut)
 def readback(rid: uuid.UUID, user: Engineer, db: DB):
-    req = svc.get_owned(db, user, rid)
+    req = mine(user, svc.get_owned(db, user, rid))
+    if req.status in ("CANCELLED", "REJECTED"):
+        raise ApiError(409, "invalid_transition", f"A requisition in {req.status} has nothing to read back")
     text, lang = svc.readback(db, req)
-    wav = ai.voice.tts(text, lang)
+    name = f"readback-{lang}-{hashlib.sha256(text.encode()).hexdigest()[:24]}.wav"  # same text, same audio: reuse it
+    sf = db.scalars(select(SourceFile).where(SourceFile.uploaded_by == user.id, SourceFile.filename == name)
+                    .order_by(SourceFile.created_at.desc()).limit(1)).first()
+    if sf and Path(sf.path).is_file():
+        return ReadbackOut(text=text, lang=lang, audio_url=f"/files/{sf.id}")
+    try:
+        wav = ai.voice.tts(text, lang)
+    except Exception:  # noqa: BLE001 - voice is optional here: the engineer can still read the text
+        return ReadbackOut(text=text, lang=lang, audio_url=None)
     pipeline.STORAGE.mkdir(exist_ok=True)
     path = pipeline.STORAGE / f"{uuid.uuid4().hex}.wav"
     path.write_bytes(wav)
-    sf = SourceFile(kind="audio", mime="audio/wav", filename="readback.wav", size=len(wav),
+    sf = SourceFile(kind="audio", mime="audio/wav", filename=name, size=len(wav),
                     sha256=hashlib.sha256(wav).hexdigest(), path=str(path), uploaded_by=user.id)
     db.add(sf)
     db.commit()
@@ -150,8 +183,8 @@ async def edit_item(rid: uuid.UUID, iid: uuid.UUID, request: Request, user: Engi
     fields, _ = await read_input(request)
 
     def go():
-        req = svc.get_owned(db, user, rid, lock=True)
-        svc.edit_item(db, user, req, svc.get_item(db, req, iid), {k: v for k, v in fields.items() if v is not None})
+        req = mine(user, svc.get_owned(db, user, rid, lock=True))
+        svc.edit_item(db, user, req, svc.get_item(db, req, iid), fields)  # explicit null clears a field
         db.commit()
         return svc.req_out(db, req)
 
@@ -163,12 +196,13 @@ async def correct(rid: uuid.UUID, request: Request, user: Engineer, db: DB):
     fields, audio = await read_input(request)
 
     def go():
-        req = svc.get_owned(db, user, rid, lock=True)
+        mine(user, svc.get_owned(db, user, rid))  # 404/403 before the slow provider call
         text = fields.get("text")
-        if audio:
-            text, _ = ai.voice.stt(*audio)
+        if audio:  # if audio and text are both sent, the audio wins (the text is ignored)
+            text, _ = ai.voice.stt(*audio)  # before the row lock: a slow provider must not hold it
         if not isinstance(text, str) or not text.strip():
             raise ApiError(422, "validation_error", "Send the correction as text or audio")
+        req = mine(user, svc.get_owned(db, user, rid, lock=True))
         svc.correct(db, user, req, text)
         db.commit()
         return svc.req_out(db, req)
@@ -181,15 +215,20 @@ async def confirm(rid: uuid.UUID, request: Request, user: Engineer, db: DB):
     _, audio = await read_input(request)
 
     def go():
-        req = svc.get_owned(db, user, rid, lock=True)
-        if audio:  # spoken reply: only a clear yes confirms; a correction is applied; a plain no changes nothing
+        req = mine(user, svc.get_owned(db, user, rid))
+        text = intent = None
+        if audio and req.status not in svc.CONFIRMED_STATES:  # STT and classify run before the row lock
             text, _ = ai.voice.stt(*audio)
             intent = svc.classify(text) if text.strip() else "no"
+        req = mine(user, svc.get_owned(db, user, rid, lock=True))
+        if intent and req.status not in svc.CONFIRMED_STATES:  # spoken reply: only a clear yes confirms; a correction is applied; a plain no changes nothing
             if intent == "correction":
                 svc.correct(db, user, req, text)
                 db.commit()
                 return svc.req_out(db, req)
             if intent == "no":
+                audit(db, "requisition", req.id, user.id, "spoken reply: not confirmed")
+                db.commit()
                 return svc.req_out(db, req)
         svc.confirm(db, user, req)
         db.commit()
@@ -200,7 +239,11 @@ async def confirm(rid: uuid.UUID, request: Request, user: Engineer, db: DB):
 
 @router.post("/requisitions/{rid}/match-codes")
 def match_codes(rid: uuid.UUID, user: Staff, db: DB):
-    req = svc.get_owned(db, user, rid)
+    req = svc.get_owned(db, user, rid, lock=True)
+    # the engineer matches only while the list is still theirs; once the HOD reviews, only the HOD (and only in review)
+    ok = svc.EDIT_STATES | ({"PENDING_APPROVAL"} if user.role == "hod" else set())
+    if req.status not in ok:
+        raise ApiError(409, "invalid_transition", f"Codes cannot be matched while the requisition is {req.status}")
     items = svc.items_of(db, req)
     result = codes.match_requisition(db, req, items)
     db.commit()
@@ -209,16 +252,43 @@ def match_codes(rid: uuid.UUID, user: Staff, db: DB):
 
 @router.post("/requisitions/{rid}/items/{iid}/code")
 def set_code(rid: uuid.UUID, iid: uuid.UUID, body: CodeIn, user: Hod, db: DB):
-    req = svc.get_owned(db, user, rid)
+    req = svc.get_owned(db, user, rid, lock=True)
+    if req.status != "PENDING_APPROVAL":  # the HOD sets codes while reviewing, not before or after
+        raise ApiError(409, "invalid_transition", f"Codes cannot be set while the requisition is {req.status}")
     item = svc.get_item(db, req, iid)
-    code = body.item_code or body.new_code
     if bool(body.item_code) == bool(body.new_code):
         raise ApiError(422, "validation_error", "Send exactly one of item_code or new_code")
-    code = code.strip()
+    code = (body.item_code or body.new_code).strip()
     if not code or len(code) > 40 or not all(c.isalnum() or c in "._-" for c in code):
         raise ApiError(422, "validation_error", "Code may contain letters, digits, dot, dash and underscore only")
+    exists = db.scalars(select(ItemCode.id).where(ItemCode.code == code).limit(1)).first() is not None
+    if body.item_code and not exists:
+        raise ApiError(404, "not_found", "Item code is not in the ERP list. Use new_code to propose one.")
+    if body.new_code:
+        if exists:
+            raise ApiError(409, "conflict", "That code is already in use")
+        # ponytail: item_codes has no pending flag; the row is the proposal, embedding fills on the next match
+        db.add(ItemCode(code=code, description=item.description[:500], category=item.category))
+    prior = item.item_code
     item.item_code = code
     audit(db, "requisition", req.id, user.id, "item code set", {"item_id": str(item.id), "code": code,
-                                                                "new": bool(body.new_code)})
+                                                                "prior_code": prior, "new": bool(body.new_code)})
     db.commit()
     return svc.item_out(item)
+
+
+@router.post("/requisitions/{rid}/cancel", response_model=RequisitionOut)
+def cancel(rid: uuid.UUID, user: Staff, db: DB):
+    """Cancel before WO_GENERATED (5.6). The state machine rejects later states with 409. Reserved stock is released."""
+    req = svc.get_owned(db, user, rid, lock=True)
+    transition(db, "requisition", req, "CANCELLED", user.id)
+    svc.close_rfqs(db, req, user.id)
+    rows = db.execute(select(InventoryReservation).join(
+        RequisitionItem, RequisitionItem.id == InventoryReservation.requisition_item_id
+    ).where(RequisitionItem.requisition_id == req.id)).scalars().all()
+    for r in rows:
+        inv = db.get(InventoryItem, r.inventory_item_id)
+        inv.reserved = max(0, float(inv.reserved) - float(r.qty))
+        db.delete(r)
+    db.commit()
+    return svc.req_out(db, req)

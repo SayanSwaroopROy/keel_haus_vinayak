@@ -1,0 +1,20 @@
+meta {
+  name: inventory HOD ok
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/inventory
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 200
+}

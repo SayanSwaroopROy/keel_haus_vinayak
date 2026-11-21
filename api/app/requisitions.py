@@ -1,5 +1,6 @@
 """Requisition service: create, revisions, edits, readback text, corrections, confirm. docs/specs/0001."""
 
+import math
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
@@ -9,13 +10,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import ai
-from app.errors import ApiError, forbidden, not_found
-from app.ingest.structure import fence
+from app.access import own_or_hod
+from app.errors import ApiError, not_found
+from app.ingest.structure import MAX_QTY, _question, fence
 from app.ingest.units import canon_uom
 from app.models import IngestionJob, Requisition, RequisitionItem, RequisitionRevision, User
-from app.transitions import audit, notify, transition
+from app.transitions import audit, notify_hods, transition
 
 EDITABLE = {"description", "quantity", "uom", "brand", "spec", "remarks", "category", "kind", "wo_code"}
+READ_ONLY = {"item_code", "extra_pct", "location_breakdown"}  # in ReqItem but not editable here: ignored, not 422
+TRUNC_PREFIX = "Not everything was read: "
 EDIT_STATES = {"PENDING_CONFIRMATION", "CLARIFICATION_REQUIRED"}
 
 
@@ -62,11 +66,10 @@ def add_revision(db: Session, req: Requisition, actor: str, note: str) -> None:
 # ---------- access ----------
 def get_owned(db: Session, user: User, rid: uuid.UUID, lock: bool = False) -> Requisition:
     """lock=True takes a row lock for the rest of the transaction, so two writers (a double tap on Confirm) take turns."""
-    req = db.get(Requisition, rid, with_for_update=lock)
+    req = db.get(Requisition, rid, with_for_update=lock, populate_existing=lock)  # re-read under the lock
     if not req:
         raise not_found("Requisition not found")
-    if user.role != "hod" and req.raised_by != user.id:
-        raise forbidden("This requisition belongs to someone else")
+    own_or_hod(user, req.raised_by)
     return req
 
 
@@ -85,6 +88,15 @@ def create_from_extraction(db: Session, job: IngestionJob, items: list[dict], la
     db.add(req)
     db.flush()
     transition(db, "requisition", req, "PROCESSING", user_id)
+    if notes and items:
+        # no requisition-level note field exists: surface truncation on the first item so the confirmation loop
+        # blocks until the engineer has looked (editing the description clears the flag)
+        first = items[0]
+        first["uncertain_fields"] = sorted({*first["uncertain_fields"], "description"})
+        first["clarification_question"] = (TRUNC_PREFIX + "; ".join(notes)
+                                           + ". Check that no item is missing" + (
+            f". {first['clarification_question']}" if first["clarification_question"] else "."))
+        first["confidence"] = min(first["confidence"], 0.5)
     for pos, it in enumerate(items):
         db.add(RequisitionItem(requisition_id=req.id, position=pos, **it))
     transition(db, "requisition", req, "PENDING_CONFIRMATION", user_id)
@@ -95,22 +107,30 @@ def create_from_extraction(db: Session, job: IngestionJob, items: list[dict], la
 
 
 # ---------- edits ----------
-def _apply(item: RequisitionItem, fields: dict) -> list[str]:
+def _apply(item: RequisitionItem, fields: dict, explicit: bool = False) -> list[str]:
     """Apply validated field edits to one item. Returns the names of fields changed."""
-    changed = []
+    changed, cleared = [], set()
     for k, v in fields.items():
         if k not in EDITABLE:
             raise ApiError(422, "validation_error", f"Field '{k}' cannot be edited")
-        if k == "quantity":
+        if v is None and k in ("quantity", "uom"):  # clearing makes it unknown again: flagged, never guessed
+            if k == "quantity":
+                item.original_qty = item.quantity = None
+            else:
+                item.original_uom = item.uom = None
+            cleared.add(k)
+        elif v is None and k in ("description", "kind"):
+            raise ApiError(422, "validation_error", f"{k} cannot be cleared")
+        elif k == "quantity":
             try:
                 q = float(v)
             except (TypeError, ValueError):
                 raise ApiError(422, "validation_error", "Quantity must be a number") from None
-            if q <= 0:
-                raise ApiError(422, "validation_error", "Quantity must be greater than zero")
+            if not math.isfinite(q) or q <= 0 or q > MAX_QTY:
+                raise ApiError(422, "validation_error", "Quantity must be a number greater than zero and realistic")
             item.original_qty, item.quantity = q, q
         elif k == "uom":
-            u = canon_uom(str(v))
+            u = canon_uom(str(v), explicit=explicit)
             if not u:
                 raise ApiError(422, "validation_error", f"Unknown unit '{v}'")
             item.original_uom, item.uom = str(v), u
@@ -125,10 +145,15 @@ def _apply(item: RequisitionItem, fields: dict) -> list[str]:
         else:
             setattr(item, k, (str(v).strip() or None) if v is not None else None)
         changed.append(k)
-    unc = [f for f in (item.uncertain_fields or []) if f not in changed]
+    # any edit of the item acknowledges the truncation notice (set in create_from_extraction): no fake edit needed
+    ack = (item.clarification_question or "").startswith(TRUNC_PREFIX)
+    unc = [f for f in (item.uncertain_fields or []) if (f not in changed or f in cleared) and not (ack and f == "description")]
+    unc += [f for f in sorted(cleared) if f not in unc]
     item.uncertain_fields = unc
     if not unc:
         item.clarification_question, item.confidence = None, 1.0
+    elif cleared:
+        item.clarification_question, item.confidence = _question(item.description, set(unc)), min(item.confidence or 0.5, 0.5)
     return changed
 
 
@@ -144,7 +169,10 @@ def _back_to_confirmation(db: Session, req: Requisition, user: User) -> None:
 
 def edit_item(db: Session, user: User, req: Requisition, item: RequisitionItem, fields: dict) -> None:
     check_editable(req)
-    changed = _apply(item, fields)
+    fields = {k: v for k, v in fields.items() if k not in READ_ONLY}  # a client may echo the whole ReqItem back
+    if not fields:
+        return  # empty body: nothing changed, no revision
+    changed = _apply(item, fields, explicit=True)
     req.revision += 1
     _back_to_confirmation(db, req, user)
     add_revision(db, req, "user", f"edited {', '.join(changed)} of {item.description[:60]}")
@@ -161,11 +189,14 @@ _UNITS = {
 }
 _T = {
     "en": {"head": "You are requesting {items}. Is this correct?", "and": " and ", "qty": "quantity not clear",
-           "uom": "unit not clear", "fmt": "{q} {u} {n}", "bare": "{n}"},
+           "uom": "unit not clear", "description": "name not clear", "brand": "brand not clear",
+           "spec": "specification not clear", "empty": "There are no items yet.", "fmt": "{q} {u} {n}", "bare": "{n}"},
     "hi": {"head": "आप {items} चाहते हैं। क्या यह सही है?", "and": " और ", "qty": "मात्रा स्पष्ट नहीं",
-           "uom": "इकाई स्पष्ट नहीं", "fmt": "{q} {u} {n}", "bare": "{n}"},
+           "uom": "इकाई स्पष्ट नहीं", "description": "नाम स्पष्ट नहीं", "brand": "ब्रांड स्पष्ट नहीं",
+           "spec": "विनिर्देश स्पष्ट नहीं", "empty": "अभी कोई आइटम नहीं है।", "fmt": "{q} {u} {n}", "bare": "{n}"},
     "bn": {"head": "আপনি {items} চাইছেন। আপনি কি নিশ্চিত?", "and": " এবং ", "qty": "পরিমাণ স্পষ্ট নয়",
-           "uom": "একক স্পষ্ট নয়", "fmt": "{q} {u} {n}", "bare": "{n}"},
+           "uom": "একক স্পষ্ট নয়", "description": "নাম স্পষ্ট নয়", "brand": "ব্র্যান্ড স্পষ্ট নয়",
+           "spec": "স্পেসিফিকেশন স্পষ্ট নয়", "empty": "এখনও কোনও আইটেম নেই।", "fmt": "{q} {u} {n}", "bare": "{n}"},
 }
 
 
@@ -177,14 +208,21 @@ def readback(db: Session, req: Requisition) -> tuple[str, str]:
     lang = req.original_lang if req.original_lang in _T else "en"
     t, units = _T[lang], _UNITS[lang]
     parts = []
-    for i in items_of(db, req):
+    its = items_of(db, req)
+    if not its:
+        return t["empty"], lang
+    for i in its:
         name = ((i.source_ref or {}).get("name_original") if isinstance(i.source_ref, dict) else None) or i.description
+        flags = i.uncertain_fields or []
+        # every flagged field is announced as unclear, whatever else is known
+        unclear = [t[k] for k, f in (("qty", "quantity"), ("uom", "uom"), ("description", "description"),
+                                     ("brand", "brand"), ("spec", "spec")) if f in flags]
         if i.quantity is not None and i.uom:
-            parts.append(t["fmt"].format(q=fmt_qty(float(i.quantity)), u=units[i.uom], n=name))
+            base = t["fmt"].format(q=fmt_qty(float(i.quantity)), u=units.get(i.uom, i.uom), n=name)
+            parts.append(f"{base} ({', '.join(unclear)})" if unclear else base)
         else:
-            unclear = [t[f] for f in ("qty", "uom") if f in (i.uncertain_fields or [])]
             parts.append(f"{name} ({', '.join(unclear) or t['qty']})")
-    items = ", ".join(parts[:-1]) + t["and"] + parts[-1] if len(parts) > 1 else (parts[0] if parts else "")
+    items = ", ".join(parts[:-1]) + t["and"] + parts[-1] if len(parts) > 1 else parts[0]
     return t["head"].format(items=items), lang
 
 
@@ -257,6 +295,7 @@ def correct(db: Session, user: User, req: Requisition, text: str) -> None:
         raise ApiError(422, "validation_error", "I could not tell which item to change. Which one do you mean?",
                        [{"needs": "clarification"}])
     notes = []
+    pos = max([i.position for i in by_id.values()], default=-1)
     for o in plan:
         if o.op == "update":
             _apply(by_id[o.item_id], o.values())
@@ -266,15 +305,17 @@ def correct(db: Session, user: User, req: Requisition, text: str) -> None:
             notes.append(f"removed {by_id[o.item_id].description[:40]}")
         elif o.op == "add":
             f = o.values()
-            item = RequisitionItem(requisition_id=req.id, position=max([i.position for i in by_id.values()], default=-1) + 1, kind="work", description=str(f.get("description", "")).strip()[:500],
-                                   confidence=0.9, uncertain_fields=["quantity", "uom"])
-            if not item.description:
+            desc = str(f.get("description", "")).strip()[:500]
+            if not desc:
                 raise ApiError(422, "validation_error", "What item should I add?", [{"needs": "clarification"}])
-            item.uncertain_fields = ["quantity", "uom"]
-            item.clarification_question = f"For {item.description}: how many and which unit?"
+            pos += 1
+            item = RequisitionItem(requisition_id=req.id, position=pos, kind="work", description=desc, confidence=0.9,
+                                   uncertain_fields=["quantity", "uom"],
+                                   clarification_question=f"For {desc}: how many and which unit?")
             db.add(item)
-            if {"quantity", "uom"} & f.keys():
-                _apply(item, {k: v for k, v in f.items() if k in ("quantity", "uom", "kind", "brand", "spec")})
+            extra = {k: v for k, v in f.items() if k in ("quantity", "uom", "kind", "brand", "spec", "category", "remarks")}
+            if extra:  # every stated value counts, not only quantity or unit
+                _apply(item, extra)
             notes.append(f"added {item.description[:40]}")
     req.revision += 1
     _back_to_confirmation(db, req, user)
@@ -305,7 +346,13 @@ def classify(text: str) -> str:
     return ai.llm.json("fast", system, fence(text, "spoken reply"), schema, Intent).intent
 
 
+CONFIRMED_STATES = {"CONFIRMED", "SUBMITTED", "PENDING_APPROVAL", "APPROVED", "RFQ_FLOATED", "UNDER_EVALUATION",
+                    "VENDOR_SELECTED", "WO_GENERATED", "ORDER_PLACED", "COMPLETED"}
+
+
 def confirm(db: Session, user: User, req: Requisition) -> None:
+    if req.status in CONFIRMED_STATES:
+        return  # double tap or retry: already confirmed, report the current state
     if req.status != "PENDING_CONFIRMATION":
         raise ApiError(409, "invalid_transition", f"A requisition in {req.status} cannot be confirmed")
     items = items_of(db, req)
@@ -321,5 +368,27 @@ def confirm(db: Session, user: User, req: Requisition) -> None:
     transition(db, "requisition", req, "PENDING_APPROVAL", user.id)
     req.revision += 1
     add_revision(db, req, "user", "confirmed by the requester")
-    for hod in db.scalars(select(User).where(User.role == "hod")):
-        notify(db, hod.id, "requisition_submitted", f"New requisition from {user.name}", "requisition", req.id)
+    notify_hods(db, "requisition_submitted", f"New requisition from {user.name}", "requisition", req.id)
+
+
+# ---------- cancel ----------
+def close_rfqs(db: Session, req: Requisition, actor: uuid.UUID) -> int:
+    """Cancelling a requisition closes its open RFQs, their vendor rows and conversations. A DRAFT RFQ has no CLOSED
+    step in the rfq machine, so this updates the rows directly (audited). Returns the number of RFQs closed."""
+    from app.models import Conversation, Rfq, RfqVendor
+    from app.transitions import allowed
+
+    n = 0
+    for rfq in db.scalars(select(Rfq).where(Rfq.requisition_id == req.id, Rfq.status.notin_(["CLOSED", "CANCELLED"])).with_for_update()):
+        audit(db, "rfq", rfq.id, actor, "closed: requisition cancelled", {"from": rfq.status, "to": "CLOSED"})
+        rfq.status = "CLOSED"
+        for rv in db.scalars(select(RfqVendor).where(RfqVendor.rfq_id == rfq.id)):
+            # AWARDED / NOT_AWARDED / CANCELLED / CLOSED allow neither step and are skipped
+            for to in ("CLOSED", "CANCELLED"):
+                if allowed("rfq_vendor", rv.status, to):
+                    transition(db, "rfq_vendor", rv, to, actor)
+                    break
+        for c in db.scalars(select(Conversation).where(Conversation.rfq_id == rfq.id)):
+            c.status = "closed"
+        n += 1
+    return n

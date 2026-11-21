@@ -1,0 +1,24 @@
+meta {
+  name: alternative propose engineer 403
+  type: http
+  seq: 127
+}
+
+post {
+  url: {{baseUrl}}/alternatives
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+body:json {
+  { "rfq_item_id": "00000000-0000-0000-0000-000000000000", "proposed_spec": "x", "explanation": "x" }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

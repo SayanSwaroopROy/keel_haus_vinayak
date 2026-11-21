@@ -1,0 +1,15 @@
+meta {
+  name: rfqs no token 401
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/rfqs
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+}

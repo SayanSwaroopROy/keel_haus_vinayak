@@ -1,0 +1,24 @@
+meta {
+  name: work order approval unknown 404
+  type: http
+  seq: 146
+}
+
+post {
+  url: {{baseUrl}}/work-orders/00000000-0000-0000-0000-000000000000/approval
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_mgmt}}
+}
+
+body:json {
+  { "action": "approve" }
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.code: eq not_found
+}

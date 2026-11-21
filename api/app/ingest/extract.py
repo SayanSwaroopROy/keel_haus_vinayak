@@ -26,6 +26,7 @@ class Result:
     raw_text: str | None = None
     transcript: str | None = None
     notes: list[str] = field(default_factory=list)
+    detected: str | None = None  # what detection found; `lang` may be the caller's hint
 
 
 def guess_lang(text: str) -> str:
@@ -120,8 +121,7 @@ def run(kind: str, path: Path, filename: str, hint_lang: str | None, step: Calla
             raise ApiError(422, "validation_error", "No speech was found in the recording")
         step("llm")
         ex = structure.extract_text(_cut(transcript, notes), "voice transcript")
-        lang = hint_lang or spoken or ex.language
-        return _done(ex, lang, raw, transcript, notes, step)
+        return _done(ex, hint_lang or spoken or ex.language, raw, transcript, notes, step, spoken)
     if kind == "image":
         step("ocr")
         step("llm")
@@ -149,7 +149,9 @@ def run(kind: str, path: Path, filename: str, hint_lang: str | None, step: Calla
             step("normalise")
             text = " ".join(i.description for i in table.items[:50])
             items = structure.finalize(Extraction(items=table.items))
-            return Result(items, hint_lang or guess_lang(text), None, None, notes)
+            step("lang")
+            found = guess_lang(text)
+            return Result(items, hint_lang or found, None, None, notes, detected=found)
         step("llm")
         raw = table.text
         ex = structure.extract_text(_cut(table.text, notes), kind)
@@ -174,9 +176,12 @@ def run_text(text: str, hint_lang: str | None, step: Callable[[str], None]) -> R
 
 
 def _done(ex: Extraction, lang: str, raw: str | None, transcript: str | None, notes: list[str],
-          step: Callable[[str], None]) -> Result:
+          step: Callable[[str], None], detected: str | None = None) -> Result:
+    step("lang")
+    detected = detected or ex.language
     step("normalise")
     items = structure.finalize(ex)
     if not items:
         raise ApiError(422, "validation_error", "No items could be found in this input")
-    return Result(items, structure.lang_of(ex, lang if lang else None), raw, transcript, notes)
+    return Result(items, structure.lang_of(ex, lang if lang else None), raw, transcript, notes,
+                  detected if detected in structure.LANGS else None)

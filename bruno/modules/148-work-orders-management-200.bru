@@ -1,0 +1,19 @@
+meta {
+  name: work orders management 200
+  type: http
+  seq: 148
+}
+
+get {
+  url: {{baseUrl}}/work-orders
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_mgmt}}
+}
+
+assert {
+  res.status: eq 200
+}

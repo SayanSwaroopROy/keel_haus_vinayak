@@ -1,0 +1,24 @@
+meta {
+  name: alternative propose empty 422
+  type: http
+  seq: 128
+}
+
+post {
+  url: {{baseUrl}}/alternatives
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_vendor_a}}
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.code: eq validation_error
+}

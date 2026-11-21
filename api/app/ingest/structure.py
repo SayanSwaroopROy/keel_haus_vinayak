@@ -1,20 +1,25 @@
 """Turn untrusted document text or images into validated item dicts. The AI only proposes data; code validates it."""
 
 import math
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app import ai
+from app.errors import ApiError
 from app.ingest.units import canon_uom
 
 FIELDS = {"description", "quantity", "uom", "brand", "spec", "category"}
 LANGS = {"bn", "hi", "en"}
+MAX_QTY = 1e9  # beyond this a quantity is a misread or an attack, not a real order: null + flag
+MAX_ITEMS = 500  # per input: more is almost surely a wrong file, and one requisition must stay reviewable
 
 
 class ExtractedItem(BaseModel):
     kind: Literal["work", "material"] = "work"
     wo_code: str | None = None
+    item_code: str | None = None  # ERP code, only when the document states one
     description: str = ""
     name_original: str | None = None
     category: str | None = None
@@ -74,7 +79,7 @@ Return JSON only."""
 
 
 def fence(text: str, source: str) -> str:
-    safe = text.replace("</document", "< /document")  # the content cannot close the fence early
+    safe = re.sub(r"</\s*document", "< /document", text, flags=re.IGNORECASE)  # the content cannot close the fence early
     return f'<document source="{source}">\n{safe}\n</document>'
 
 
@@ -100,6 +105,9 @@ def _question(desc: str, fields: set[str]) -> str:
 
 def finalize(ex: Extraction) -> list[dict]:
     """Validate and normalise. Missing or unclear quantity and unit stay null and are flagged, never guessed."""
+    # item_code is only filled by tabular extraction (tabular.py); LLM-extracted items never get one
+    if len(ex.items) > MAX_ITEMS:
+        raise ApiError(422, "validation_error", f"This input has more than {MAX_ITEMS} items. Split it into smaller files.")
     out = []
     for it in ex.items:
         desc = (it.description or "").strip()
@@ -107,7 +115,7 @@ def finalize(ex: Extraction) -> list[dict]:
             continue
         unc = {f for f in it.uncertain_fields if f in FIELDS}
         qty = it.quantity
-        if qty is not None and (not math.isfinite(qty) or qty <= 0):
+        if qty is not None and (not math.isfinite(qty) or qty <= 0 or qty > MAX_QTY):
             qty = None
         uom = canon_uom(it.uom_raw)
         if qty is None:
@@ -119,9 +127,10 @@ def finalize(ex: Extraction) -> list[dict]:
             conf = min(conf, 0.5)
         ref = {"name_original": it.name_original, "ref": it.ref}
         out.append({
-            "kind": it.kind, "wo_code": (it.wo_code or "").strip() or None, "description": desc[:500],
+            "kind": it.kind, "wo_code": (it.wo_code or "").strip() or None,
+            "item_code": (it.item_code or "").strip()[:40] or None, "description": desc[:500],
             "category": it.category, "spec": it.spec, "brand": it.brand, "uom": uom, "quantity": qty,
-            "original_qty": it.quantity, "original_uom": (it.uom_raw or None), "remarks": it.remarks,
+            "original_qty": it.quantity if it.quantity is not None and math.isfinite(it.quantity) and abs(it.quantity) <= MAX_QTY else None, "original_uom": (it.uom_raw or None), "remarks": it.remarks,
             "confidence": conf, "uncertain_fields": sorted(unc),
             "clarification_question": (it.clarification_question or _question(desc, unc)) if unc else None,
             "source_ref": ref,

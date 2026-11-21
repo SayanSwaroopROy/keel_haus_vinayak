@@ -47,10 +47,16 @@ def match_item(db: Session, item: RequisitionItem, vec: list[float]) -> dict:
     rows = db.execute(q.order_by(dist).limit(TOP_K)).all()
     matches = [{"code": r.code, "description": r.description, "score": round(float(r.score), 4)} for r in rows]
     duplicates: list[dict] = []
-    if item.wo_code:  # a written code that exists is the strongest signal
-        exact = db.execute(select(ItemCode.code, ItemCode.description).where(ItemCode.code == item.wo_code)).all()
-        if exact and not any(m["code"] == item.wo_code for m in matches[:1]):
-            matches.insert(0, {"code": exact[0].code, "description": exact[0].description, "score": 1.0})
+    # a written code that exists is the strongest signal: the ERP item_code first, then wo_code only when that
+    # text is itself a code in the ERP list (a WO code that is not in item_codes is not an item code)
+    for written in (item.item_code, item.wo_code):
+        if not written:
+            continue
+        exact = db.execute(select(ItemCode.code, ItemCode.description).where(ItemCode.code == written)).all()
+        if exact:
+            if not any(m["code"] == written for m in matches[:1]):
+                matches.insert(0, {"code": exact[0].code, "description": exact[0].description, "score": 1.0})
+            break
     seen: set[str] = set()
     for m in matches[:2]:  # conflicting meanings: the same code listed with different descriptions
         if m["code"] in seen:

@@ -1,0 +1,20 @@
+meta {
+  name: notifications ok
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/notifications
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 200
+}

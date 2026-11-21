@@ -1,0 +1,20 @@
+meta {
+  name: work orders HOD 200
+  type: http
+  seq: 153
+}
+
+get {
+  url: {{baseUrl}}/work-orders
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}

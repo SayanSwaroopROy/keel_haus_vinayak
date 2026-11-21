@@ -1,0 +1,19 @@
+meta {
+  name: conversations vendor 200
+  type: http
+  seq: 125
+}
+
+get {
+  url: {{baseUrl}}/conversations
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_vendor_a}}
+}
+
+assert {
+  res.status: eq 200
+}
