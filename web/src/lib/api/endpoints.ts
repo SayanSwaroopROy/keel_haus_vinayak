@@ -1,8 +1,5 @@
 import { z } from "zod";
 import { apiFetch, apiFetchBlob } from "./client";
-import { isMocked } from "./mode";
-import { flowApi } from "./mocks/flow";
-import { mockApi } from "./mocks/handlers";
 import {
   DashboardStatsSchema,
   InventoryRowSchema,
@@ -25,7 +22,6 @@ import {
 import {
   AlternativeSchema,
   ConversationSchema,
-  EvalWeightsSchema,
   EvaluationSchema,
   MessageSchema,
   QuotationSchema,
@@ -49,197 +45,138 @@ const enc = encodeURIComponent;
 
 export const api = {
   users: (role?: Role) =>
-    isMocked("users.list")
-      ? mockApi.listUsers(role)
-      : apiFetch(`/users${role ? `?role=${enc(role)}` : ""}`, { schema: z.array(UserSchema), identified: false }),
+    apiFetch(`/users${role ? `?role=${enc(role)}` : ""}`, { schema: z.array(UserSchema), identified: false }),
 
   me: () => apiFetch("/me", { schema: UserSchema }),
 
-  projects: () => (isMocked("projects.list") ? mockApi.listProjects() : apiFetch("/projects", { schema: z.array(ProjectSchema) })),
+  projects: () => (apiFetch("/projects", { schema: z.array(ProjectSchema) })),
 
   notifications: () =>
-    isMocked("notifications") ? mockApi.listNotifications() : apiFetch("/notifications", { schema: z.array(NotificationSchema) }),
+    apiFetch("/notifications", { schema: z.array(NotificationSchema) }),
 
   markNotificationRead: (id: string) =>
-    isMocked("notifications")
-      ? mockApi.markNotificationRead(id)
-      : apiFetch(`/notifications/${enc(id)}/read`, { method: "POST", schema: NoContent }),
+    apiFetch(`/notifications/${enc(id)}/read`, { method: "POST", schema: NoContent }),
 
   dashboardStats: () =>
-    isMocked("dashboard.stats") ? mockApi.dashboardStats() : apiFetch("/dashboard/stats", { schema: DashboardStatsSchema }),
+    apiFetch("/dashboard/stats", { schema: DashboardStatsSchema }),
 
   requisitions: (status?: RequisitionStatus) =>
-    isMocked("requisitions.list")
-      ? mockApi.listRequisitions(status)
-      : apiFetch(`/requisitions${status ? `?status=${enc(status)}` : ""}`, { schema: z.array(RequisitionSchema) }),
+    apiFetch(`/requisitions${status ? `?status=${enc(status)}` : ""}`, { schema: z.array(RequisitionSchema) }),
 
   requisition: (id: string) =>
-    isMocked("requisitions.get")
-      ? mockApi.getRequisition(id)
-      : apiFetch(`/requisitions/${enc(id)}`, { schema: RequisitionSchema }),
+    apiFetch(`/requisitions/${enc(id)}`, { schema: RequisitionSchema }),
 
   revisions: (id: string) =>
-    isMocked("requisitions.revisions")
-      ? mockApi.getRevisions(id)
-      : apiFetch(`/requisitions/${enc(id)}/revisions`, { schema: z.array(RevisionSchema) }),
+    apiFetch(`/requisitions/${enc(id)}/revisions`, { schema: z.array(RevisionSchema) }),
 
   matchCodes: (id: string) =>
-    isMocked("requisitions.matchCodes")
-      ? mockApi.matchCodes(id)
-      : apiFetch(`/requisitions/${enc(id)}/match-codes`, { method: "POST", schema: MatchCodesResponseSchema }),
+    apiFetch(`/requisitions/${enc(id)}/match-codes`, { method: "POST", schema: MatchCodesResponseSchema }),
 
   assignCode: (id: string, itemId: string, input: AssignCodeInput) =>
-    isMocked("requisitions.assignCode")
-      ? mockApi.assignCode(id, itemId, input)
-      : apiFetch(`/requisitions/${enc(id)}/items/${enc(itemId)}/code`, { method: "POST", body: input, schema: ReqItemSchema }),
+    apiFetch(`/requisitions/${enc(id)}/items/${enc(itemId)}/code`, { method: "POST", body: input, schema: ReqItemSchema }),
 
   stockCheck: (id: string) =>
-    isMocked("requisitions.stockCheck")
-      ? mockApi.stockCheck(id)
-      : apiFetch(`/requisitions/${enc(id)}/stock-check`, { schema: z.array(StockRowSchema) }),
+    apiFetch(`/requisitions/${enc(id)}/stock-check`, { schema: z.array(StockRowSchema) }),
 
   decide: (id: string, input: DecisionInput) =>
-    isMocked("requisitions.decision")
-      ? mockApi.decide(id, input)
-      : apiFetch(`/requisitions/${enc(id)}/decision`, { method: "POST", body: input, schema: RequisitionSchema }),
+    apiFetch(`/requisitions/${enc(id)}/decision`, { method: "POST", body: input, schema: RequisitionSchema }),
 
   inventory: (projectId?: string) =>
-    isMocked("inventory.list")
-      ? mockApi.listInventory(projectId)
-      : apiFetch(`/inventory${projectId ? `?project_id=${enc(projectId)}` : ""}`, { schema: z.array(InventoryRowSchema) }),
+    apiFetch(`/inventory${projectId ? `?project_id=${enc(projectId)}` : ""}`, { schema: z.array(InventoryRowSchema) }),
 
   vendors: (category?: string) =>
-    isMocked("vendors.list")
-      ? mockApi.listVendors(category)
-      : apiFetch(`/vendors${category ? `?category=${enc(category)}` : ""}`, { schema: z.array(VendorSchema) }),
+    apiFetch(`/vendors${category ? `?category=${enc(category)}` : ""}`, { schema: z.array(VendorSchema) }),
 
   createVendor: (input: VendorInput) =>
-    isMocked("vendors.create")
-      ? mockApi.createVendor(input)
-      : apiFetch("/vendors", { method: "POST", body: input, schema: VendorSchema }),
+    apiFetch("/vendors", { method: "POST", body: input, schema: VendorSchema }),
 
   updateVendor: (id: string, input: Partial<VendorInput>) =>
-    isMocked("vendors.update")
-      ? mockApi.updateVendor(id, input)
-      : apiFetch(`/vendors/${enc(id)}`, { method: "PATCH", body: input, schema: VendorSchema }),
+    apiFetch(`/vendors/${enc(id)}`, { method: "PATCH", body: input, schema: VendorSchema }),
 
   setRegistration: (id: string, input: RegistrationInput) =>
-    isMocked("vendors.registration")
-      ? mockApi.setRegistration(id, input)
-      : apiFetch(`/vendors/${enc(id)}/registration`, { method: "PATCH", body: input, schema: VendorSchema }),
+    apiFetch(`/vendors/${enc(id)}/registration`, { method: "PATCH", body: input, schema: VendorSchema }),
 
   addPerformance: (id: string, input: PerformanceInput) =>
-    isMocked("vendors.performance")
-      ? mockApi.addPerformance(id, input)
-      : apiFetch(`/vendors/${enc(id)}/performance`, { method: "POST", body: input, schema: z.unknown() }).then(() => undefined),
+    apiFetch(`/vendors/${enc(id)}/performance`, { method: "POST", body: input, schema: z.unknown() }).then(() => undefined),
 
   // RFQ
-  rfqs: () => (isMocked("rfqs") ? flowApi.listRfqs() : apiFetch("/rfqs", { schema: z.array(RfqSchema) })),
+  rfqs: () => (apiFetch("/rfqs", { schema: z.array(RfqSchema) })),
 
-  rfq: (id: string) => (isMocked("rfqs") ? flowApi.getRfq(id) : apiFetch(`/rfqs/${enc(id)}`, { schema: RfqSchema })),
+  rfq: (id: string) => (apiFetch(`/rfqs/${enc(id)}`, { schema: RfqSchema })),
 
   createRfqs: (requisitionId: string, input: RfqCreateInput) =>
-    isMocked("rfqs")
-      ? flowApi.createRfqs(requisitionId, input)
-      : apiFetch(`/requisitions/${enc(requisitionId)}/rfqs`, { method: "POST", body: input, schema: z.array(RfqSchema) }),
+    apiFetch(`/requisitions/${enc(requisitionId)}/rfqs`, { method: "POST", body: input, schema: z.array(RfqSchema) }),
 
   sendRfq: (id: string) =>
-    isMocked("rfqs") ? flowApi.sendRfq(id) : apiFetch(`/rfqs/${enc(id)}/send`, { method: "POST", schema: RfqSchema }),
+    apiFetch(`/rfqs/${enc(id)}/send`, { method: "POST", schema: RfqSchema }),
 
   closeRfq: (id: string) =>
-    isMocked("rfqs") ? flowApi.closeRfq(id) : apiFetch(`/rfqs/${enc(id)}/close`, { method: "POST", schema: RfqSchema }),
+    apiFetch(`/rfqs/${enc(id)}/close`, { method: "POST", schema: RfqSchema }),
 
   cancelRequisition: (id: string) =>
-    isMocked("rfqs")
-      ? flowApi.cancelRequisition(id)
-      : apiFetch(`/requisitions/${enc(id)}/cancel`, { method: "POST", schema: RequisitionSchema }),
+    apiFetch(`/requisitions/${enc(id)}/cancel`, { method: "POST", schema: RequisitionSchema }),
 
   requestRevision: (rfqId: string, input: RevisionRequestInput) =>
-    isMocked("quotations")
-      ? flowApi.requestRevision(rfqId, input)
-      : apiFetch(`/rfqs/${enc(rfqId)}/request-revision`, { method: "POST", body: input, schema: RfqVendorSchema }),
+    apiFetch(`/rfqs/${enc(rfqId)}/request-revision`, { method: "POST", body: input, schema: RfqVendorSchema }),
 
   // Chat
   conversations: () =>
-    isMocked("conversations") ? flowApi.listConversations() : apiFetch("/conversations", { schema: z.array(ConversationSchema) }),
+    apiFetch("/conversations", { schema: z.array(ConversationSchema) }),
 
   messages: (conversationId: string) =>
-    isMocked("conversations")
-      ? flowApi.listMessages(conversationId)
-      : apiFetch(`/conversations/${enc(conversationId)}/messages`, { schema: z.array(MessageSchema) }),
+    apiFetch(`/conversations/${enc(conversationId)}/messages`, { schema: z.array(MessageSchema) }),
 
   sendMessage: (conversationId: string, text: string, rfqItemId: string | null) =>
-    isMocked("conversations")
-      ? flowApi.sendMessage(conversationId, text, rfqItemId)
-      : apiFetch(`/conversations/${enc(conversationId)}/messages`, {
+    apiFetch(`/conversations/${enc(conversationId)}/messages`, {
           method: "POST",
           body: { text, ...(rfqItemId ? { rfq_item_id: rfqItemId } : {}) },
           schema: MessageSchema,
         }),
 
-  // The contract has no read endpoint for alternatives yet; the mock stands in until SETUP adds one.
-  alternatives: (rfqId: string) => flowApi.listAlternatives(rfqId),
+  alternatives: (rfqId: string) => apiFetch(`/rfqs/${enc(rfqId)}/alternatives`, { schema: z.array(AlternativeSchema) }),
 
   decideAlternative: (id: string, input: AlternativeDecisionInput) =>
-    isMocked("alternatives")
-      ? flowApi.decideAlternative(id, input)
-      : apiFetch(`/alternatives/${enc(id)}/decision`, { method: "POST", body: input, schema: AlternativeSchema }),
+    apiFetch(`/alternatives/${enc(id)}/decision`, { method: "POST", body: input, schema: AlternativeSchema }),
 
   // Quotations and comparison
   quotations: (rfqId: string) =>
-    isMocked("quotations") ? flowApi.listQuotations(rfqId) : apiFetch(`/rfqs/${enc(rfqId)}/quotations`, { schema: z.array(QuotationSchema) }),
+    apiFetch(`/rfqs/${enc(rfqId)}/quotations`, { schema: z.array(QuotationSchema) }),
 
   createQuotation: (rfqId: string, input: QuotationInput) =>
-    isMocked("quotations")
-      ? flowApi.createQuotation(rfqId, input)
-      : apiFetch(`/rfqs/${enc(rfqId)}/quotations`, { method: "POST", body: input, schema: QuotationSchema }),
+    apiFetch(`/rfqs/${enc(rfqId)}/quotations`, { method: "POST", body: input, schema: QuotationSchema }),
 
   patchQuotation: (id: string, input: QuotationPatch) =>
-    isMocked("quotations")
-      ? flowApi.patchQuotation(id, input)
-      : apiFetch(`/quotations/${enc(id)}`, { method: "PATCH", body: input, schema: QuotationSchema }),
+    apiFetch(`/quotations/${enc(id)}`, { method: "PATCH", body: input, schema: QuotationSchema }),
 
   evaluation: (rfqId: string) =>
-    isMocked("evaluation") ? flowApi.getEvaluation(rfqId) : apiFetch(`/rfqs/${enc(rfqId)}/evaluation`, { schema: EvaluationSchema }),
+    apiFetch(`/rfqs/${enc(rfqId)}/evaluation`, { schema: EvaluationSchema }),
 
   createEvaluation: (rfqId: string, weights?: EvalWeights) =>
-    isMocked("evaluation")
-      ? flowApi.createEvaluation(rfqId, weights ? EvalWeightsSchema.parse(weights) : undefined)
-      : apiFetch(`/rfqs/${enc(rfqId)}/evaluation`, { method: "POST", body: weights ? { weights } : {}, schema: EvaluationSchema }),
+    apiFetch(`/rfqs/${enc(rfqId)}/evaluation`, { method: "POST", body: weights ? { weights } : {}, schema: EvaluationSchema }),
 
   select: (evaluationId: string, input: SelectionInput) =>
-    isMocked("evaluation")
-      ? flowApi.select(evaluationId, input)
-      : apiFetch(`/evaluations/${enc(evaluationId)}/select`, { method: "POST", body: input, schema: EvaluationSchema }),
+    apiFetch(`/evaluations/${enc(evaluationId)}/select`, { method: "POST", body: input, schema: EvaluationSchema }),
 
   // Work orders
   createWorkOrders: (evaluationId: string) =>
-    isMocked("workOrders")
-      ? flowApi.createWorkOrders(evaluationId)
-      : apiFetch(`/evaluations/${enc(evaluationId)}/work-order`, { method: "POST", schema: z.array(WorkOrderSchema) }),
+    apiFetch(`/evaluations/${enc(evaluationId)}/work-order`, { method: "POST", schema: z.array(WorkOrderSchema) }),
 
-  workOrders: () => (isMocked("workOrders") ? flowApi.listWorkOrders() : apiFetch("/work-orders", { schema: z.array(WorkOrderSchema) })),
+  workOrders: () => (apiFetch("/work-orders", { schema: z.array(WorkOrderSchema) })),
 
   workOrder: (id: string) =>
-    isMocked("workOrders") ? flowApi.getWorkOrder(id) : apiFetch(`/work-orders/${enc(id)}`, { schema: WorkOrderSchema }),
+    apiFetch(`/work-orders/${enc(id)}`, { schema: WorkOrderSchema }),
 
   submitWorkOrder: (id: string) =>
-    isMocked("workOrders") ? flowApi.submitWorkOrder(id) : apiFetch(`/work-orders/${enc(id)}/submit`, { method: "POST", schema: WorkOrderSchema }),
+    apiFetch(`/work-orders/${enc(id)}/submit`, { method: "POST", schema: WorkOrderSchema }),
 
   decideWorkOrder: (id: string, input: WoApprovalInput) =>
-    isMocked("workOrders")
-      ? flowApi.decideWorkOrder(id, input)
-      : apiFetch(`/work-orders/${enc(id)}/approval`, { method: "POST", body: input, schema: WorkOrderSchema }),
+    apiFetch(`/work-orders/${enc(id)}/approval`, { method: "POST", body: input, schema: WorkOrderSchema }),
 
   completeWorkOrder: (id: string) =>
-    isMocked("workOrders")
-      ? flowApi.completeWorkOrder(id)
-      : apiFetch(`/work-orders/${enc(id)}/complete`, { method: "POST", schema: WorkOrderSchema }),
+    apiFetch(`/work-orders/${enc(id)}/complete`, { method: "POST", schema: WorkOrderSchema }),
 
   cancelWorkOrder: (id: string, input: WoCancelInput) =>
-    isMocked("workOrders")
-      ? flowApi.cancelWorkOrder(id, input)
-      : apiFetch(`/work-orders/${enc(id)}/cancel`, { method: "POST", body: input, schema: WorkOrderSchema }),
+    apiFetch(`/work-orders/${enc(id)}/cancel`, { method: "POST", body: input, schema: WorkOrderSchema }),
 
-  file: (id: string): Promise<Blob | null> => (isMocked("files.get") ? Promise.resolve(null) : apiFetchBlob(`/files/${enc(id)}`)),
+  file: (id: string) => apiFetchBlob(`/files/${enc(id)}`),
 };

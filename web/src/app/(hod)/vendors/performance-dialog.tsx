@@ -20,8 +20,6 @@ import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAddPerformance, useProjects } from "@/lib/api/hooks";
 import { describeError } from "@/lib/api/errors";
-import { isMocked } from "@/lib/api/mode";
-import { MOCK_PROJECTS } from "@/lib/api/mocks/fixtures";
 import { PerformanceInputSchema, type Vendor } from "@/lib/api/schemas";
 
 type ScoreKey = "quality" | "delivery" | "disputes";
@@ -34,7 +32,7 @@ const SCALES: Array<{ key: ScoreKey; label: string; hint: string }> = [
 
 export function PerformanceDialog({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void }) {
   const projects = useProjects();
-  const options = isMocked("vendors.performance") ? MOCK_PROJECTS : (projects.data ?? []);
+  const options = projects.data ?? [];
   const [projectId, setProjectId] = useState<string>("");
   const [scores, setScores] = useState<Record<ScoreKey, number | null>>({ quality: null, delivery: null, disputes: null });
   const [note, setNote] = useState("");

@@ -3,7 +3,7 @@ import { RequisitionStatusSchema } from "./api/schemas";
 import { DECISION_LABELS, NAV_LABELS, STATUS_LABELS } from "./i18n/labels";
 import { formatQty, reqNumber } from "./format";
 import { requisitionBlockers } from "./requisition";
-import { MOCK_REQUISITIONS } from "./api/mocks/fixtures";
+import type { ReqItem, Requisition } from "./api/schemas";
 
 const BENGALI = /[ঀ-৿]/;
 const DEVANAGARI = /[ऀ-ॿ]/;
@@ -37,7 +37,8 @@ describe("display helpers", () => {
   });
 
   it("flags unsure and duplicate lines as blockers", () => {
-    const roof = MOCK_REQUISITIONS[0];
+    const item = (over: Partial<ReqItem>) => ({ quantity: 1, uom: "nos", uncertain_fields: [], duplicate_of: [], item_code: "X", ...over }) as ReqItem;
+    const roof = { items: [item({ uncertain_fields: ["quantity"] }), item({ duplicate_of: [{ code: "a", description: "a", reason: "a" }] })] } as unknown as Requisition;
     const kinds = requisitionBlockers(roof).map((blocker) => blocker.kind);
     expect(kinds).toContain("unsure");
     expect(kinds).toContain("duplicate");

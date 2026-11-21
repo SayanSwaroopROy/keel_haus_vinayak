@@ -224,3 +224,14 @@ export type DecisionInput = z.infer<typeof DecisionInputSchema>;
 export type AssignCodeInput = z.infer<typeof AssignCodeInputSchema>;
 export type VendorInput = z.infer<typeof VendorInputSchema>;
 export type PerformanceInput = z.infer<typeof PerformanceInputSchema>;
+
+export const VENDOR_CATEGORIES = [
+  "Waterproofing",
+  "Road / Civil",
+  "Cement",
+  "Sand & Aggregates",
+  "Iron Rods",
+  "Fasteners",
+  "Electrical",
+  "Testing Lab",
+] as const;

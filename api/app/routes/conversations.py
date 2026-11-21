@@ -211,6 +211,20 @@ def open_alts(db: Session, rfq_id, vendor_id, item_id=None, exclude=None) -> lis
     return list(db.scalars(q))
 
 
+@router.get("/rfqs/{rfq_id}/alternatives")
+def list_alternatives(rfq_id: uuid.UUID, user: Me, db: DB):
+    """Staff see every proposal on the RFQ; a vendor sees only its own."""
+    if not db.get(Rfq, rfq_id):
+        raise not_found("RFQ not found")
+    if user.role not in STAFF and user.role != "vendor":
+        raise deny()
+    q = (select(AlternativeProposal).join(RfqItem, RfqItem.id == AlternativeProposal.rfq_item_id)
+         .where(RfqItem.rfq_id == rfq_id).order_by(AlternativeProposal.created_at))
+    if user.role == "vendor":
+        q = q.where(AlternativeProposal.vendor_id == user.vendor_id)
+    return [alt_out(a) for a in db.scalars(q)]
+
+
 @router.post("/alternatives", status_code=201)
 def propose(body: AltIn, user: VendorUser, db: DB):
     it = db.get(RfqItem, body.rfq_item_id)

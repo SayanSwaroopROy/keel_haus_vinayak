@@ -1,6 +1,6 @@
 # HOD web status (2026-11-21)
 
-Branch: `feature/frontend`. `web/` follows the scope change in `docs/FEATURES.md` and `docs/API_CONTRACT.md`. Everything except the Phase 1 endpoints runs on mocks (`src/lib/api/mode.ts`).
+Branch: `feature/frontend`. `web/` follows the scope change in `docs/FEATURES.md` and `docs/API_CONTRACT.md`. All endpoints, including `GET /rfqs/{id}/alternatives`, hit the real FastAPI + Postgres backend. The mock layer is removed.
 
 ## Verified
 - `tsc --noEmit`, `eslint`, `next build` and the 36 unit tests in `src/` pass.
@@ -16,10 +16,7 @@ Branch: `feature/frontend`. `web/` follows the scope change in `docs/FEATURES.md
 - Alternatives: the panel is still in the build. Confirm with SETUP whether alternatives stay, because the contract has no read endpoint for them.
 - No recharts. Charts are CSS bars.
 - Management sees Work Orders only.
-- Multi-category RFQ: the contract sends one `vendor_ids` list, so the mock filters it per category. Needs SETUP to confirm.
 
 ## Open items for SETUP and BACKEND
-- `GET /users` and `X-User-Id` are pending in the backend, so `users.list`, `projects.list` and `notifications` stay mocked.
-- The contract has no field for a Work Order rejection note. The mock puts it in the notification title.
 - The contract has no endpoint to acknowledge a Work Order, although the status flow includes `ACKNOWLEDGED`.
 - `docs/FEATURES.md` mentions recharts; the web uses CSS bars.

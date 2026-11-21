@@ -6,8 +6,6 @@ import { DummyBadge, Figure, QueryState } from "@/components/ledger";
 import { ProjectSelect } from "@/components/project-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useInventory, useProjectLookup, useProjects } from "@/lib/api/hooks";
-import { isMocked } from "@/lib/api/mode";
-import { MOCK_PROJECTS } from "@/lib/api/mocks/fixtures";
 import { formatQty } from "@/lib/format";
 
 export function InventoryView() {
@@ -15,7 +13,7 @@ export function InventoryView() {
   const projects = useProjects();
   const lookupProject = useProjectLookup();
   const query = useInventory(projectId);
-  const projectOptions = isMocked("inventory.list") ? MOCK_PROJECTS : (projects.data ?? []);
+  const projectOptions = projects.data ?? [];
   const rows = query.data ?? [];
 
   return (

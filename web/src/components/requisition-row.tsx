@@ -5,7 +5,7 @@ import Link from "next/link";
 import { cn } from "cn";
 import { StatusBadge, Thread } from "@/components/ledger";
 import { Badge } from "@/components/ui/badge";
-import { personName, useProjectLookup } from "@/lib/api/hooks";
+import { usePersonName, useProjectLookup } from "@/lib/api/hooks";
 import type { Requisition } from "@/lib/api/schemas";
 import { ageInDays, formatRelative, reqNumber } from "@/lib/format";
 import { LANG_NAMES } from "@/lib/i18n/labels";
@@ -13,6 +13,7 @@ import { INPUT_TYPE_LABEL, requisitionBlockers } from "@/lib/requisition";
 
 export function RequisitionLedgerRow({ requisition, showStatus }: { requisition: Requisition; showStatus?: boolean }) {
   const lookupProject = useProjectLookup();
+  const personName = usePersonName();
   const project = lookupProject(requisition.project_id);
   const open = requisition.status === "PENDING_APPROVAL";
   const blockers = requisitionBlockers(requisition);

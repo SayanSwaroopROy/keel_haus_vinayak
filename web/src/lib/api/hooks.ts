@@ -2,8 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./endpoints";
-import { MOCK_PEOPLE, MOCK_PROJECTS } from "./mocks/fixtures";
-import { isMocked } from "./mode";
 import type {
   AssignCodeInput,
   DecisionInput,
@@ -35,14 +33,16 @@ export function useProjects() {
   return useQuery({ queryKey: queryKeys.projects(), queryFn: api.projects, staleTime: 5 * 60_000 });
 }
 
-/** Real projects first; mocked requisitions reference demo projects, so those resolve too. */
+
 export function useProjectLookup(): (id: string) => Project | undefined {
   const { data } = useProjects();
-  return (id: string) => data?.find((row) => row.id === id) ?? MOCK_PROJECTS.find((row) => row.id === id);
+  return (id: string) => data?.find((row) => row.id === id);
 }
 
-export function personName(id: string): string {
-  return MOCK_PEOPLE[id] ?? "Site engineer";
+/** Resolves a user id to a name from the real /users list. */
+export function usePersonName(): (id: string) => string {
+  const { data } = useQuery({ queryKey: [...queryKeys.all, "users"] as const, queryFn: () => api.users(), staleTime: 5 * 60_000 });
+  return (id: string) => data?.find((row) => row.id === id)?.name ?? "Site engineer";
 }
 
 export function useNotifications() {
@@ -154,7 +154,7 @@ export function useFile(id: string | null) {
   return useQuery({
     queryKey: [...queryKeys.all, "file", id ?? "none"] as const,
     queryFn: () => (id ? api.file(id) : Promise.resolve(null)),
-    enabled: id !== null && !isMocked("files.get"),
+    enabled: id !== null,
     staleTime: Infinity,
   });
 }

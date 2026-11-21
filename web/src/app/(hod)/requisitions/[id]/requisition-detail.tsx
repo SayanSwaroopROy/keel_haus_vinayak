@@ -9,7 +9,7 @@ import { NotificationBell } from "@/components/shell/notification-bell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { personName, useProjectLookup, useRequisition, useStockCheck } from "@/lib/api/hooks";
+import { usePersonName, useProjectLookup, useRequisition, useStockCheck } from "@/lib/api/hooks";
 import type { Requisition } from "@/lib/api/schemas";
 import { useDecisionLog } from "@/lib/decision-log";
 import { formatDateTime, reqNumber } from "@/lib/format";
@@ -32,6 +32,7 @@ const BLOCKER_HINT = {
 
 function Header({ requisition }: { requisition: Requisition }) {
   const lookupProject = useProjectLookup();
+  const personName = usePersonName();
   const project = lookupProject(requisition.project_id);
   const stock = useStockCheck(requisition.id);
   const blockers = requisitionBlockers(requisition, stock.data);

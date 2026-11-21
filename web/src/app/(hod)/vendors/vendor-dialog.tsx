@@ -20,7 +20,7 @@ import { toast } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useSaveVendor } from "@/lib/api/hooks";
 import { describeError } from "@/lib/api/errors";
-import { VENDOR_CATEGORIES } from "@/lib/api/mocks/fixtures";
+import { VENDOR_CATEGORIES } from "@/lib/api/schemas";
 import { VendorInputSchema, type Vendor } from "@/lib/api/schemas";
 import { z } from "zod";
 

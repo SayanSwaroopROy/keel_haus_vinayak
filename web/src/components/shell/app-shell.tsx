@@ -19,7 +19,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Trilabel } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ANY_MOCKED } from "@/lib/api/mode";
 import { useSession } from "@/lib/auth/session";
 import { NAV_LABELS } from "@/lib/i18n/labels";
 import { NotificationBell } from "./notification-bell";
@@ -153,12 +152,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <NotificationBell tone="binding" />
         </header>
-
-        {ANY_MOCKED ? (
-          <p role="note" data-app-chrome="" className="border-b border-unsure/30 bg-unsure-soft px-4 py-1.5 text-xs text-unsure-foreground sm:px-8 print:hidden">
-            Demo data: requisitions, stock, vendors, RFQs, quotations and Work Orders are simulated, and there is no real sign-in, until the backend endpoints are live.
-          </p>
-        ) : null}
 
         <div className="flex flex-1 flex-col">{children}</div>
       </div>

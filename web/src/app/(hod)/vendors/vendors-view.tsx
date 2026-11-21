@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { toast } from "@/components/ui/toast";
 import { useSetVendorStatus, useVendors } from "@/lib/api/hooks";
 import { describeError } from "@/lib/api/errors";
-import { VENDOR_CATEGORIES } from "@/lib/api/mocks/fixtures";
+import { VENDOR_CATEGORIES } from "@/lib/api/schemas";
 import type { Vendor } from "@/lib/api/schemas";
 import { PerformanceDialog } from "./performance-dialog";
 import { RegistrationDialog } from "./registration-dialog";

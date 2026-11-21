@@ -8,7 +8,6 @@ import { QueryState, StatusBadge } from "@/components/ledger";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardStats, useRequisitions } from "@/lib/api/hooks";
-import { isMocked } from "@/lib/api/mode";
 import type { DashboardStats } from "@/lib/api/schemas";
 import { formatQty, formatRelative, reqNumber } from "@/lib/format";
 import { useSession } from "@/lib/auth/session";
@@ -96,7 +95,6 @@ export function DashboardView() {
             <h2 id="ledger-heading" className="text-lg font-medium">
               Procurement ledger
             </h2>
-            {isMocked("dashboard.stats") ? <span className="text-xs text-muted-foreground">demo figures</span> : null}
           </div>
           <QueryState
             query={stats}
