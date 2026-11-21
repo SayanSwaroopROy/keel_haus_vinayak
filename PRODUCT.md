@@ -48,7 +48,7 @@ Requisitions arrive in Bengali, Hindi or English. Live demo for Vinayak on 2026-
   - No alternative is accepted automatically.
   - No vendor is selected automatically, and never on price alone.
 - Missing specs, quantities or units are null, flagged and given a clarification question. They are never guessed.
-- RFQ emails go only to a test inbox. Vendor contact emails shown are that test inbox.
+- No email is ever sent. RFQs, messages and work orders reach vendors as in-app notifications only.
 - Vendor past performance, stock levels, vendor categories and two of five projects are dummy or inferred. They must be labelled in the UI.
 - Simulated integrations (polling as real-time, WO print view) are labelled.
 - Client data pack is confidential: never shown in committed code or mocks.
