@@ -98,9 +98,9 @@ def notify(db: Session, user_id: uuid.UUID, type_: str, title: str, ref_type: st
     db.add(Notification(user_id=user_id, type=type_, title=title, ref_type=ref_type, ref_id=ref_id))
 
 
-def notify_hods(db: Session, type_: str, title: str, ref_type: str | None = None,
-                ref_id: uuid.UUID | None = None) -> None:
-    uids = list(db.scalars(select(User.id).where(User.role == "hod")))
+def _notify_where(db: Session, cond: Any, type_: str, title: str, ref_type: str | None,
+                  ref_id: uuid.UUID | None) -> None:
+    uids = list(db.scalars(select(User.id).where(cond)))
     db.flush()  # pending work stays outside the savepoints below
     for uid in uids:
         try:  # a user deleted since the select must not fail the caller's request
@@ -111,7 +111,16 @@ def notify_hods(db: Session, type_: str, title: str, ref_type: str | None = None
             pass
 
 
+def notify_hods(db: Session, type_: str, title: str, ref_type: str | None = None,
+                ref_id: uuid.UUID | None = None) -> None:
+    _notify_where(db, User.role == "hod", type_, title, ref_type, ref_id)
+
+
+def notify_management(db: Session, type_: str, title: str, ref_type: str | None = None,
+                      ref_id: uuid.UUID | None = None) -> None:
+    _notify_where(db, User.role == "management", type_, title, ref_type, ref_id)
+
+
 def notify_vendor(db: Session, vendor_id: uuid.UUID, type_: str, title: str, ref_type: str | None = None,
                   ref_id: uuid.UUID | None = None) -> None:
-    for uid in db.scalars(select(User.id).where(User.role == "vendor", User.vendor_id == vendor_id)):
-        notify(db, uid, type_, title, ref_type, ref_id)
+    _notify_where(db, (User.role == "vendor") & (User.vendor_id == vendor_id), type_, title, ref_type, ref_id)
