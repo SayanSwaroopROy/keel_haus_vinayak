@@ -54,7 +54,9 @@ export function isApiError(error: unknown): error is ApiError {
 export function parseErrorBody(status: number, body: unknown): ApiError {
   const parsed = ApiErrorBodySchema.safeParse(body);
   if (!parsed.success) {
-    return new ApiError(status, status >= 500 ? "internal" : "bad_response", "The server sent an unexpected response.");
+    return status >= 500
+      ? new ApiError(status, "internal", "The server is unavailable right now. Try again shortly.")
+      : new ApiError(status, "bad_response", "The server sent an unexpected response.");
   }
   const { code, message, details } = parsed.data.error;
   const knownCode: ApiErrorCode = KNOWN_CODES.has(code) ? (code as ApiErrorCode) : "internal";

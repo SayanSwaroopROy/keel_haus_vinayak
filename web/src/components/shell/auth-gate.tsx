@@ -1,13 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { use, useEffect, type ReactNode } from "react";
-import { browser } from "react-dom";
+import { useEffect, type ReactNode } from "react";
 import { useSession } from "@/lib/auth/session";
 import { ShellSkeleton } from "./shell-skeleton";
 
+// The session lives in sessionStorage, so the server and first client render both show the skeleton.
 export function AuthGate({ children }: { children: ReactNode }) {
-  use(browser("The HOD session token lives in sessionStorage."));
   const router = useRouter();
   const { session, hydrated, hydrate } = useSession();
 

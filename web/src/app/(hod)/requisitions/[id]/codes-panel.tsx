@@ -190,8 +190,8 @@ function ItemCodes({
               );
             })}
           </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">No close ERP match.</p>
+        ) : row.item_code ? null : (
+          <p className="text-sm text-muted-foreground">No close ERP match. Create a new code below.</p>
         )
       ) : null}
 

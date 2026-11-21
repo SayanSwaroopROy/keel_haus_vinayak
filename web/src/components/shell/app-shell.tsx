@@ -15,7 +15,7 @@ import { NAV_LABELS } from "@/lib/i18n/labels";
 import { NotificationBell } from "./notification-bell";
 
 const NAV = [
-  { href: "/dashboard", label: NAV_LABELS.dashboard, icon: LayoutDashboardIcon },
+  { href: "/", label: NAV_LABELS.dashboard, icon: LayoutDashboardIcon },
   { href: "/requisitions", label: NAV_LABELS.requisitions, icon: ScrollTextIcon },
   { href: "/inventory", label: NAV_LABELS.inventory, icon: PackageIcon },
   { href: "/vendors", label: NAV_LABELS.vendors, icon: StoreIcon },
@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh">
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col justify-between bg-binding p-4 text-binding-foreground lg:flex">
         <div className="flex flex-col gap-8">
-          <Link href="/dashboard" className="px-3 pt-2 focus-visible:outline-binding-foreground">
+          <Link href="/" className="px-3 pt-2 focus-visible:outline-binding-foreground">
             <Wordmark />
           </Link>
           <NavLinks />
@@ -126,7 +126,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </SheetContent>
           </Sheet>
-          <Link href="/dashboard" className="focus-visible:outline-binding-foreground">
+          <Link href="/" className="focus-visible:outline-binding-foreground">
             <Wordmark className="items-center" />
           </Link>
           <NotificationBell tone="binding" />

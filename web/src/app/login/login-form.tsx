@@ -29,7 +29,7 @@ export function LoginForm() {
         return;
       }
       signIn({ token, user });
-      router.replace("/dashboard");
+      router.replace("/");
     },
   });
 

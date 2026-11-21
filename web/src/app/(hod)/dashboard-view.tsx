@@ -130,7 +130,7 @@ export function DashboardView() {
             </ul>
           </QueryState>
           <div>
-            <Button variant="outline" size="sm" render={<Link href="/requisitions" />}>
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/requisitions" />}>
               All requisitions
               <ArrowRightIcon data-icon="inline-end" />
             </Button>

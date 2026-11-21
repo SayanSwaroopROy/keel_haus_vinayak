@@ -1,7 +1,7 @@
 "use client";
 
 import { FileAudioIcon, FileImageIcon, FileTextIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { DummyBadge, QueryState } from "@/components/ledger";
 import { useFile } from "@/lib/api/hooks";
 import { isMocked } from "@/lib/api/mode";
@@ -10,14 +10,12 @@ import { LANG_NAMES } from "@/lib/i18n/labels";
 import { INPUT_TYPE_LABEL } from "@/lib/requisition";
 
 function useObjectUrl(blob: Blob | null | undefined): string | null {
-  const [url, setUrl] = useState<string | null>(null);
+  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob]);
   useEffect(() => {
-    if (!blob) return;
-    const next = URL.createObjectURL(blob);
-    setUrl(next);
-    return () => URL.revokeObjectURL(next);
-  }, [blob]);
-  return blob ? url : null;
+    if (!url) return;
+    return () => URL.revokeObjectURL(url);
+  }, [url]);
+  return url;
 }
 
 function Viewer({ blob, label }: { blob: Blob; label: string }) {

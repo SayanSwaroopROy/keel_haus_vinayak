@@ -127,7 +127,7 @@ export function DecisionSeal({
       role="img"
       aria-label={`${copy.word.toLowerCase()} seal${decidedAt ? `, ${formatDate(decidedAt)}` : ""}`}
       className={cn(
-        "grid size-24 shrink-0 -rotate-[8deg] place-items-center rounded-full border-2 p-1",
+        "m-2 grid size-28 shrink-0 -rotate-[8deg] place-items-center rounded-full border-2 p-1",
         copy.tone === "settled" && "border-settled text-settled",
         copy.tone === "void" && "border-binding text-binding",
         copy.tone === "waiting" && "border-unsure text-unsure-foreground",
@@ -137,11 +137,9 @@ export function DecisionSeal({
       <div className="grid size-full place-items-center rounded-full border border-current text-center">
         <div className="flex flex-col items-center gap-0.5">
           <span className="text-[0.55rem] tracking-[0.2em] opacity-80">VINAYAK · HOD</span>
-          <span className="text-[0.8rem] font-bold tracking-[0.08em]">{copy.word}</span>
-          <span className="text-[0.6rem] tabular-nums opacity-80">
-            {initials}
-            {decidedAt ? ` · ${formatDate(decidedAt)}` : ""}
-          </span>
+          <span className="text-[0.8rem] font-bold tracking-[0.06em]">{copy.word}</span>
+          <span className="text-[0.62rem] font-medium tabular-nums">{initials}</span>
+          {decidedAt ? <span className="text-[0.55rem] tabular-nums opacity-80">{formatDate(decidedAt)}</span> : null}
         </div>
       </div>
     </div>

@@ -139,7 +139,7 @@ export function RequisitionDetail() {
           <Header requisition={query.data} />
           <main className="px-4 py-5 pb-28 sm:px-8 lg:pb-8">
             <Tabs defaultValue="items" className="gap-5">
-              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <div className="-mx-4 overflow-x-auto overflow-y-hidden px-4 sm:mx-0 sm:px-0">
                 <TabsList variant="line" className="w-max">
                   <TabsTrigger value="items">Lines ({query.data.items.length})</TabsTrigger>
                   <TabsTrigger value="codes">ERP codes</TabsTrigger>
