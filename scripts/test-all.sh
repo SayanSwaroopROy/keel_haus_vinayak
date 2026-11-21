@@ -3,6 +3,11 @@
 set -u
 cd "$(dirname "$0")/.."
 fail=0; step() { echo "== $1"; shift; "$@" || { echo "FAIL: $1"; fail=1; }; }
+# Bruno logs in as the seeded "hod" user: needs SEED_PASSWORD (env or .env) and a DB seeded with it.
+[ -z "${SEED_PASSWORD:-}" ] && SEED_PASSWORD=$(grep -E '^SEED_PASSWORD=' .env 2>/dev/null | head -1 | cut -d= -f2-)
+[ -z "${SEED_PASSWORD:-}" ] && { echo "FAIL: SEED_PASSWORD not set (env or .env); run scripts/seed.py with it first"; exit 1; }
+export SEED_PASSWORD
+export JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 16)}"
 step lint pnpm -s lint
 step typecheck pnpm -s typecheck
 step pytest pnpm -s test:api

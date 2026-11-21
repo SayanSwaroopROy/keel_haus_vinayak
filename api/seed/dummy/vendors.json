@@ -1,0 +1,12 @@
+[
+  {"name": "Demo AquaSeal Works", "categories": ["Waterproofing"], "brands": ["BrandX Coat"], "perf": [4, 4, 0]},
+  {"name": "Demo DryGuard Contractors", "categories": ["Waterproofing"], "brands": ["BrandY Shield"], "perf": [3, 5, 1]},
+  {"name": "Demo Paving & Roads Co", "categories": ["Road / Civil"], "brands": [], "perf": [4, 3, 0]},
+  {"name": "Demo Roadline Infra", "categories": ["Road / Civil"], "brands": [], "perf": [5, 4, 0]},
+  {"name": "Demo Metro Civil Works", "categories": ["Road / Civil"], "brands": [], "perf": [3, 3, 2]},
+  {"name": "Demo Cement Traders", "categories": ["Cement"], "brands": ["Brand A", "Brand B"], "perf": [4, 5, 0]},
+  {"name": "Demo Bengal Cement Depot", "categories": ["Cement"], "brands": ["Brand B"], "perf": [5, 3, 1]},
+  {"name": "Demo Sand & Aggregates", "categories": ["Sand & Aggregates"], "brands": [], "perf": [3, 4, 0]},
+  {"name": "Demo Rod & Steel Supply", "categories": ["Iron Rods"], "brands": ["Brand S"], "perf": [4, 4, 1]},
+  {"name": "Demo Fasteners House", "categories": ["Fasteners"], "brands": [], "perf": [4, 5, 0]}
+]

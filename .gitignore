@@ -26,3 +26,5 @@ Vinayak.json
 api/storage/
 docs/private/
 FinalPrompt.md
+api/seed/local/
+.vscode/

@@ -1,27 +1,23 @@
+import logging
+
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
+from app import db as _db  # noqa: F401  (loads root .env before anything reads os.environ)
+from app.errors import install
+from app.routes import core
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="keelHaus API")
+install(app)
+app.include_router(core.router)
 
 
 class Health(BaseModel):
     status: str
 
 
-class EchoIn(BaseModel):
-    message: str = Field(min_length=1)
-
-
-class EchoOut(BaseModel):
-    echo: str
-    length: int
-
-
 @app.get("/health", response_model=Health)
 def health() -> Health:
     return Health(status="ok")
-
-
-@app.post("/echo", response_model=EchoOut)
-def echo(body: EchoIn) -> EchoOut:
-    return EchoOut(echo=body.message, length=len(body.message))

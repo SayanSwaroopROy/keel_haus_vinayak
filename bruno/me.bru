@@ -1,0 +1,20 @@
+meta {
+  name: me
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.role: eq hod
+}
