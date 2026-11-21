@@ -32,7 +32,7 @@ Phase 1 already gives us the tables, login, roles, status machines and error for
 - **AC-9**: An engineer sees and changes only their own requisitions. The HOD sees all. A vendor gets 403. A file can be downloaded only by its uploader or the HOD.
 - **AC-10**: Text inside an uploaded document is data, never instructions. The AI output is validated against a fixed schema and whitelists. An invalid output is retried once, then the job fails safely.
 - **AC-11**: Code match returns the top matches with scores, a duplicates list (same code with different descriptions, or near identical descriptions under different codes), and a new code suggestion when no match is good enough. Only the HOD can set the final code.
-- **AC-12**: Upload returns 202 at once. The job status is pollable with its current step. A job left RUNNING by a server restart is marked FAILED at startup. A provider timeout makes the job FAILED with `provider_error` or `timeout` text.
+- **AC-12**: Upload returns 202 at once. The job status is pollable with its current step. A job still RUNNING or QUEUED after 10 minutes is marked FAILED, both at server startup and when its status is read (the dev database is shared, so a startup sweep never touches a recent job). A provider timeout makes the job FAILED with `provider_error` or `timeout` text.
 - **AC-13**: Hindi, Bengali and English are detected (from the speech to text result, or from the AI for text), stored in `original_lang`, and used for the readback.
 
 ## Options considered
@@ -72,7 +72,7 @@ Run Tesseract or a cloud OCR first, then the AI on the text.
 
 **Chosen option**: Option 1: One multimodal AI pipeline with deterministic parsing for tables.
 
-Providers: OpenRouter through the existing `openai` package (`OPENROUTER_MODEL_VISION` for images and scanned pages, `OPENROUTER_MODEL_CHAT` for extraction and corrections, `OPENROUTER_MODEL_FAST` for the yes or no classifier, `OPENROUTER_MODEL_EMBEDDING` for code match). Sarvam through the existing `sarvamai` package: model `saaras:v3` for speech to text, model `bulbul:v3` with speaker `shubh` for text to speech (both checked live today; `bulbul:v2` is deprecated). Jobs run as FastAPI background tasks.
+Providers: OpenRouter through the existing `openai` package (`OPENROUTER_MODEL_VISION` for images and scanned pages, `OPENROUTER_MODEL_CHAT` for extraction and corrections, `OPENROUTER_MODEL_FAST` for the yes or no classifier, `OPENROUTER_MODEL_EMBEDDING` for code match). Sarvam through the existing `sarvamai` package: model `saaras:v3` for speech to text, model `bulbul:v3` with speaker `shubh` for text to speech (both checked live today; `bulbul:v2` is deprecated). Sarvam speech to text accepts at most 30 seconds per call (checked live), so longer voice notes are converted and cut into 25 second pieces with `ffmpeg` (a system tool, present on this machine) and the transcripts are joined. Without `ffmpeg`, only audio of 30 seconds or less works, and a longer file fails with a clear message. Jobs run as FastAPI background tasks.
 
 **Implementation skills**: `fastapi` (`.claude/skills/fastapi/`), `pydantic` (`.claude/skills/pydantic/`), `chat` (Sarvam chat skill, only for the style of calls)
 
@@ -115,7 +115,7 @@ In process background tasks are enough for one server and one day. The cost is t
 | Readback | voice | Sarvam `bulbul:v3`, speaker `shubh`, language code `bn-IN`, `hi-IN` or `en-IN` |
 | Confirm | notification recipients | all users with role `hod` |
 | Code match | scores | cosine similarity of `OPENROUTER_MODEL_EMBEDDING` vectors |
-| Code match | thresholds | constants in `app/codes.py`, calibrated on the real ERP list (see Build plan task 11) |
+| Code match | thresholds | constants in `app/codes.py`, calibrated on the real ERP list: `MATCH_OK` 0.68 (true matches scored 0.70 to 1.0, unrelated text 0.41 to 0.655) and `DUP` 0.90 |
 | New code suggestion | the code text | prefix of the best match plus the next free number in that family; `NEW.01` if there is none |
 | File storage | path | `api/storage/<uuid><ext>` (gitignored) |
 
@@ -167,6 +167,7 @@ The approach is Tracer Bullet (recorded default): a thin thread first (text to r
 - Handwriting and scans are read by a vision model, and every uncertain field is surfaced for a human.
 
 **Negative / tradeoffs**:
+- Voice notes longer than 30 seconds need `ffmpeg` installed on the server.
 - A job lost in a restart must be uploaded again. Large scans take about 10 seconds per page for vision, so we cap the pages.
 - Provider calls cost money and time; tests use fakes, so only the smoke script proves the real providers.
 - Template readback is plain, and the item names are read as extracted (not translated).
@@ -180,4 +181,5 @@ The approach is Tracer Bullet (recorded default): a thin thread first (text to r
 - [ ] FRONTEND: convert HEIC to JPEG before upload, poll `GET /ingest/{job_id}` every 1.5 seconds, show `uncertain_fields` and `clarification_question`.
 - [ ] Phase 6 will reuse this pipeline for vendor quote PDFs (same extractors, a different schema).
 - [ ] If a restart losing jobs hurts in the demo, move the runner to QStash.
+- [ ] Corrections: the AI returns each changed value flat on its operation (a nested `fields` object was left empty by the model in a live test, so it is no longer used). An update with no values is rejected, never recorded as a revision.
 - [ ] Ratification was delegated by the engineer; confirm the spec when convenient.

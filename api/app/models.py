@@ -106,6 +106,10 @@ class ItemCode(Base):
     category: Mapped[str | None] = mapped_column(String)
     embedding: Mapped[Any] = mapped_column(Vector(EMBED_DIM), nullable=True)
     created_at = ts()
+    __table_args__ = (
+        Index("ix_item_codes_embedding", "embedding", postgresql_using="hnsw",
+              postgresql_ops={"embedding": "vector_cosine_ops"}),
+    )
 
 
 class SourceFile(Base):
@@ -141,6 +145,7 @@ class RequisitionItem(Base):
     __tablename__ = "requisition_items"
     id = pk()
     requisition_id = fk("requisitions")
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # display order, set at creation
     kind: Mapped[str] = mapped_column(String, default="work")  # work | material
     wo_code: Mapped[str | None] = mapped_column(String)
     item_code: Mapped[str | None] = mapped_column(String)
@@ -182,6 +187,9 @@ class IngestionJob(Base):
     source_file_id = fk("source_files", nullable=True)
     requisition_id = fk("requisitions", nullable=True)
     quotation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    project_id = fk("projects", nullable=True)
+    input_type: Mapped[str | None] = mapped_column(String)
+    lang_hint: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="QUEUED")
     step: Mapped[str] = mapped_column(String, default="validate")
     detected_lang: Mapped[str | None] = mapped_column(String)

@@ -1,0 +1,24 @@
+meta {
+  name: create from empty text is rejected
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/requisitions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token_eng}}
+}
+
+body:json {
+  { "project_id": "{{project_id}}", "text": "" }
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.code: eq validation_error
+}

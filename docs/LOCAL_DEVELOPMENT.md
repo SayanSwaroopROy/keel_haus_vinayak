@@ -52,3 +52,11 @@ The phone's `localhost` is not the laptop.
 | Web proxy (optional) | `API_INTERNAL_URL` (default `http://127.0.0.1:8000`) |
 
 INTEGRATOR keeps this file exact. Any command not yet verified is marked in the role reports.
+
+## Ingestion and confirmation (backend phase 2, spec `docs/specs/0001-ingestion-and-confirmation.md`)
+- **Uploads** are stored under `api/storage/` (gitignored, random file names). Accepted: JPG, PNG, WEBP, PDF, CSV, TXT, XLSX, DOCX and audio (WAV, MP3, M4A, MP4, AAC, OGG, WEBM, FLAC, CAF), up to 20 MB. DOC, RTF, ODT and HEIC return 415 (the file is kept, not processed). The mobile app should send HEIC photos as JPEG.
+- **`ffmpeg`** (system tool, `brew install ffmpeg`) is needed only for voice notes longer than 30 seconds. Sarvam speech to text accepts 30 seconds per call, so longer audio is cut into 25 second pieces.
+- **Real provider check** (costs a few cents, needs a running API and `SEED_PASSWORD`): `pnpm dev:api`, then `cd api && uv run python scripts/smoke_ai.py`. It uses the client documents if `vinayak-vch3-data/` is present, and deletes the requisitions it creates unless you pass `--keep`.
+- **Code match thresholds** were chosen from real scores: `cd api && uv run python scripts/calibrate_codes.py` prints them. The first `match-codes` call embeds the ERP list (about 60 rows, one call).
+- Ingestion jobs run inside the API process. A job still RUNNING after 10 minutes is marked FAILED (on startup, and when its status is read); upload again.
+- Pytest uses fake AI providers, so it is fast and free. Only `smoke_ai.py` proves the real providers.

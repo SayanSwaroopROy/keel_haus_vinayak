@@ -1,0 +1,25 @@
+meta {
+  name: login engineer
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  { "username": "engineer1", "password": "{{process.env.SEED_PASSWORD}}" }
+}
+
+assert {
+  res.status: eq 200
+  res.body.user.role: eq site_engineer
+}
+
+script:post-response {
+  bru.setVar("token_eng", res.body.token);
+  bru.setVar("project_id", res.body.user.project_ids[0]);
+}
