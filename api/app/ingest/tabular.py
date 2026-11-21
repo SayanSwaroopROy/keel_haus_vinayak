@@ -11,8 +11,8 @@ from app.ingest.structure import ExtractedItem
 
 MAX_ROWS = 1000  # more rows than this is refused, never silently cut
 MAX_TEXT = 60_000
-_WO = {"wo code", "wo item", "wo no", "boq code", "boq item", "boq no"}  # work order / BOQ line
-_ITEM = {"item code", "erp code", "erp item code", "item alias", "alias", "code"}  # ERP item code: says nothing about kind
+_WO = {"wo code", "wo item", "wo no", "boq code", "boq item", "boq no", "item alias", "alias"}  # work order / BOQ line (client "Item Alias" = WO code)
+_ITEM = {"item code", "erp code", "erp item code", "code"}  # ERP item code: says nothing about kind
 _UOM = {"uom", "unit", "units", "unit of measurement"}
 _BRAND = {"brand", "make"}
 _CAT = {"category", "budget head", "type", "group"}

@@ -17,7 +17,8 @@ from app.transitions import MACHINES, allowed, transition
     ("rfq_vendor", "RFQ_SENT", "RFQ_VIEWED"),
     ("rfq_vendor", "ALTERNATIVE_PROPOSED", "ALTERNATIVE_APPROVED"),
     ("alternative", "PROPOSED", "ACCEPTED"),
-    ("work_order", "GENERATED", "SENT"),
+    ("work_order", "GENERATED", "PENDING_APPROVAL"),
+    ("work_order", "PENDING_APPROVAL", "SENT"),
 ])
 def test_allowed(entity, frm, to):
     assert allowed(entity, frm, to)
@@ -32,6 +33,7 @@ def test_allowed(entity, frm, to):
     ("alternative", "ACCEPTED", "REJECTED"),        # decisions are final
     ("rfq_vendor", "RFQ_SENT", "ALTERNATIVE_APPROVED"),  # never auto-accept an alternative
     ("work_order", "COMPLETED", "SENT"),
+    ("work_order", "GENERATED", "SENT"),            # must go through PENDING_APPROVAL
 ])
 def test_blocked(entity, frm, to):
     assert not allowed(entity, frm, to)

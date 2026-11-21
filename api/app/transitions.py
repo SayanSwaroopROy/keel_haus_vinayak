@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.errors import ApiError
@@ -99,8 +100,15 @@ def notify(db: Session, user_id: uuid.UUID, type_: str, title: str, ref_type: st
 
 def notify_hods(db: Session, type_: str, title: str, ref_type: str | None = None,
                 ref_id: uuid.UUID | None = None) -> None:
-    for uid in db.scalars(select(User.id).where(User.role == "hod")):
-        notify(db, uid, type_, title, ref_type, ref_id)
+    uids = list(db.scalars(select(User.id).where(User.role == "hod")))
+    db.flush()  # pending work stays outside the savepoints below
+    for uid in uids:
+        try:  # a user deleted since the select must not fail the caller's request
+            with db.begin_nested():
+                notify(db, uid, type_, title, ref_type, ref_id)
+                db.flush()
+        except IntegrityError:
+            pass
 
 
 def notify_vendor(db: Session, vendor_id: uuid.UUID, type_: str, title: str, ref_type: str | None = None,

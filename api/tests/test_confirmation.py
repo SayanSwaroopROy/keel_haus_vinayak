@@ -62,8 +62,10 @@ async def test_confirm_is_blocked_until_unclear_items_are_fixed(client, world, f
     hod = await login(client, world["hod"], world["pw"])
     notes = (await client.get("/notifications?unread=1", headers=hod)).json()
     assert any(n["type"] == "requisition_submitted" and n["ref_id"] == rid for n in notes)
-    # a second confirm, and any later edit, are refused
-    assert (await client.post(f"/requisitions/{rid}/confirm", headers=hdr, json={})).status_code == 409
+    # a second confirm is idempotent (200, nothing added); any later edit is refused
+    again = await client.post(f"/requisitions/{rid}/confirm", headers=hdr, json={})
+    assert again.status_code == 200 and again.json()["status"] == "PENDING_APPROVAL"
+    assert len(revisions(rid)) == 3
     assert (await client.patch(f"/requisitions/{rid}/items/{screws['id']}", headers=hdr, json={"quantity": 1})).status_code == 409
 
 
@@ -283,7 +285,7 @@ async def test_double_tap_on_confirm_confirms_once(client, world, fakes):
     hdr, req = await make_req(client, world, fakes, [h.item("Cement", 100, "bags")])
     a, b = await asyncio.gather(client.post(f"/requisitions/{req['id']}/confirm", headers=hdr, json={}),
                                 client.post(f"/requisitions/{req['id']}/confirm", headers=hdr, json={}))
-    assert sorted([a.status_code, b.status_code]) == [200, 409]
+    assert sorted([a.status_code, b.status_code]) == [200, 200]  # idempotent confirm
     assert [v[:2] for v in revisions(req["id"])] == [(1, "ai"), (2, "user")]  # one confirmation revision, no crash
     hod = await login(client, world["hod"], world["pw"])
     sent = [n for n in (await client.get("/notifications", headers=hod)).json() if n["ref_id"] == req["id"]]

@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import delete, select
 
 from app.db import SessionLocal
+from app.routes import evaluation
 from app.main import app
 from app.models import (
     AuditLog,

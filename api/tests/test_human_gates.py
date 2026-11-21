@@ -1,12 +1,15 @@
 """Human-gate tests: RFQ send, quotation access, alternatives, evaluation selection, work orders."""
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import delete, select
 
 from app.db import SessionLocal
+from app.terms import standard_terms
 from app.models import (
     AlternativeProposal, Conversation, Evaluation, Message, Notification, Quotation, QuotationItem, Requisition,
-    RequisitionItem, Rfq, RfqItem, RfqVendor, WorkOrder,
+    RequisitionItem, Rfq, RfqItem, RfqVendor, Vendor, WorkOrder,
 )
 from tests.conftest import login
 
@@ -18,7 +21,7 @@ def rig(world):
         req = Requisition(project_id=ids["proj"], raised_by=ids["eng"], input_type="text", status="APPROVED")
         db.add(req)
         db.flush()
-        rfq = Rfq(requisition_id=req.id, category="test_cat", terms=["t"], status="DRAFT")
+        rfq = Rfq(requisition_id=req.id, category="test_cat", terms=standard_terms(), status="DRAFT")
         db.add(rfq)
         db.flush()
         items = []
@@ -30,7 +33,7 @@ def rig(world):
             it = RfqItem(rfq_id=rfq.id, req_item_id=ri.id, description=f"test_item{n}", spec="old spec", uom="NOS", quantity=5)
             db.add(it)
             items.append(it)
-        db.add(RfqVendor(rfq_id=rfq.id, vendor_id=ids["vendor1"], status="RFQ_SENT"))  # vendor2 NOT invited
+        db.add(RfqVendor(rfq_id=rfq.id, vendor_id=ids["vendor1"], status="DRAFT"))  # vendor2 NOT invited
         db.commit()
         r = {"req": req.id, "rfq": rfq.id, "items": [i.id for i in items]}
     yield r
@@ -56,9 +59,19 @@ def rig(world):
 
 
 def quote(rig, vendor_id=None):
-    b = {"items": [{"rfq_item_id": str(i), "description": "x", "uom_quoted": "NOS", "qty_quoted": 5, "rate": 10}
+    b = {"gst_pct": 18, "freight": 0, "validity_days": 30, "start_days": 7, "payment_terms": "30 days net",
+         "quote_date": datetime.now(UTC).isoformat(),
+         "items": [{"rfq_item_id": str(i), "description": "x", "uom_quoted": "NOS", "qty_quoted": 5, "rate": 10}
                    for i in rig["items"]]}
     return b
+
+
+async def submit_verified(client, world, rig):
+    """Vendor quote with full terms, then HOD verification: the only way a row becomes recommendable (clean)."""
+    r = await client.post(f"/rfqs/{rig['rfq']}/quotations", json=quote(rig), headers=await login(client, world["v1"]))
+    assert r.status_code == 201
+    p = await client.patch(f"/quotations/{r.json()['id']}", json={"remarks": "checked"}, headers=await login(client, world["hod"]))
+    assert p.status_code == 200 and p.json()["status"] == "VERIFIED"
 
 
 async def send(client, world, rig):
@@ -105,8 +118,7 @@ async def test_alternative_never_auto_accepted(client, world, rig):
 async def test_evaluation_does_not_select_and_select_needs_note_and_all_items(client, world, rig):
     hod = await login(client, world["hod"])
     await send(client, world, rig)
-    assert (await client.post(f"/rfqs/{rig['rfq']}/quotations", json=quote(rig),
-                              headers=await login(client, world["v1"]))).status_code == 201
+    await submit_verified(client, world, rig)
     ev = await client.post(f"/rfqs/{rig['rfq']}/evaluation", json={}, headers=hod)
     assert ev.status_code == 201 and ev.json()["item_selections"] is None
     with SessionLocal() as db:
@@ -126,13 +138,14 @@ async def test_evaluation_does_not_select_and_select_needs_note_and_all_items(cl
 async def test_work_order_needs_selection(client, world, rig):
     hod = await login(client, world["hod"])
     await send(client, world, rig)
-    await client.post(f"/rfqs/{rig['rfq']}/quotations", json=quote(rig), headers=await login(client, world["v1"]))
+    await submit_verified(client, world, rig)
     eid = (await client.post(f"/rfqs/{rig['rfq']}/evaluation", json={}, headers=hod)).json()["id"]
     assert (await client.post(f"/evaluations/{eid}/work-order", headers=hod)).status_code == 409
 
 
 async def test_wo_approval_mgmt_only_and_vendor_visibility(client, world, rig):
     with SessionLocal() as db:
+        db.get(Vendor, world["ids"]["vendor1"]).registered = True  # approval re-checks registration (contract)
         w = WorkOrder(wo_number=f"test_wo_{rig['rfq']}", requisition_id=rig["req"], rfq_id=rig["rfq"],
                       vendor_id=world["ids"]["vendor1"], items=[], subtotal=0, gst=0, freight=0, total=0,
                       status="PENDING_APPROVAL")
@@ -140,7 +153,7 @@ async def test_wo_approval_mgmt_only_and_vendor_visibility(client, world, rig):
         db.commit()
         wid = w.id
     v1, hod, mg = [await login(client, world[u]) for u in ("v1", "hod", "mgmt")]
-    assert (await client.get(f"/work-orders/{wid}", headers=v1)).status_code == 403
+    assert (await client.get(f"/work-orders/{wid}", headers=v1)).status_code == 404
     assert wid not in [x["id"] for x in (await client.get("/work-orders", headers=v1)).json()]
     body = {"action": "approve"}
     assert (await client.post(f"/work-orders/{wid}/approval", json=body, headers=hod)).status_code == 403

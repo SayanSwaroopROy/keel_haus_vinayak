@@ -8,6 +8,7 @@ from sqlalchemy import delete, select
 
 from app import ai
 from app.db import SessionLocal
+from app.routes import rfqs
 from app.main import app
 from app.models import (
     AlternativeProposal,
