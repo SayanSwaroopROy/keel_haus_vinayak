@@ -23,6 +23,11 @@
 
 The phone's `localhost` is not the laptop.
 
+Windows notes:
+- Port 8081 can fall in a Windows reserved range (8055-8154). Start Expo on another port: `cd mobile && npx expo start -c --port 8156`.
+- A free ngrok URL changes on every restart. Update `EXPO_PUBLIC_API_BASE_URL` and restart Expo with `-c` each time.
+- File uploads need `expo-file-system` (Expo's fetch rejects `{uri, name, type}` form parts).
+
 ## Backend steps (run from `api/`)
 1. Install: `uv sync`.
 2. Env: root `.env` (see `.env.example`). Needs `DATABASE_URL_UNPOOLED` (the pooled app URL and the direct migration URL are both derived from it; optional overrides `DATABASE_URL_POOLED` and `DATABASE_URL_DIRECT`). AI keys are only needed for the AI features below; email is optional.
