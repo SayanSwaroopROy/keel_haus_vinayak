@@ -326,6 +326,18 @@ export const mockHandlers = {
     return replaceRequisition(next);
   },
 
+  // The mock cannot hear. It records the correction and leaves items unchanged, so nothing is guessed.
+  async correctByVoice(id: string): Promise<Requisition> {
+    await delay(900);
+    const requisition = ownRequisition(id);
+    if (requisition.status !== 'PENDING_CONFIRMATION' && requisition.status !== 'CLARIFICATION_REQUIRED') {
+      throw new ApiError(409, 'invalid_transition', 'This requisition can no longer be corrected.');
+    }
+    const next: Requisition = { ...requisition, revision: requisition.revision + 1, status: 'PENDING_CONFIRMATION' };
+    recordRevision(next, 'user', 'Voice correction (simulated: the mock does not interpret speech)');
+    return replaceRequisition(next);
+  },
+
   async editItem(id: string, itemId: string, patch: Partial<ReqItem>): Promise<Requisition> {
     await delay();
     const requisition = ownRequisition(id);

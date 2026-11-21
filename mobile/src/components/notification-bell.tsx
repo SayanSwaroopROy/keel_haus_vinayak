@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useUnreadCount } from '@/lib/api/hooks';
@@ -7,7 +7,7 @@ import { colors, TAP_TARGET } from '@/theme/tokens';
 import { Icon } from './icon';
 
 // On the crimson binding the count pip is paper-white with crimson ink, so it never vanishes into the bar.
-export function NotificationBell() {
+export function NotificationBell({ href = '/notifications' }: { href?: Href }) {
   const unread = useUnreadCount();
   const label = unread === 0 ? 'Notifications' : `Notifications, ${unread} unread`;
 
@@ -15,7 +15,7 @@ export function NotificationBell() {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={() => router.push('/notifications')}
+      onPress={() => router.push(href)}
       hitSlop={8}
       style={styles.button}>
       <Icon name="bell" color={colors.bindingForeground} />

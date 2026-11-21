@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useIdentity } from '@/lib/identity';
+import { usePollInterval } from '@/lib/use-poll';
 
 import { api, type UploadFile } from './endpoints';
 import { isApiError } from './errors';
@@ -62,11 +63,12 @@ export function useProjects() {
 
 export function useNotifications() {
   const userId = useUserId();
+  const refetchInterval = usePollInterval(NOTIFICATION_POLL_MS);
   return useQuery({
     queryKey: queryKeys.notifications(userId),
     queryFn: api.listNotifications,
     enabled: userId !== null,
-    refetchInterval: NOTIFICATION_POLL_MS,
+    refetchInterval,
   });
 }
 
@@ -81,21 +83,23 @@ export function useMarkNotificationRead() {
 
 export function useRequisitions() {
   const userId = useUserId();
+  const refetchInterval = usePollInterval(10_000);
   return useQuery({
     queryKey: queryKeys.requisitions(userId),
     queryFn: api.listRequisitions,
     enabled: userId !== null,
-    refetchInterval: 10_000,
+    refetchInterval,
   });
 }
 
 export function useRequisition(id: string) {
   const userId = useUserId();
+  const refetchInterval = usePollInterval(5_000);
   return useQuery({
     queryKey: queryKeys.requisition(userId, id),
     queryFn: () => api.getRequisition(id),
     enabled: userId !== null,
-    refetchInterval: 5_000,
+    refetchInterval,
   });
 }
 
@@ -110,13 +114,14 @@ export function useRevisions(id: string) {
 
 export function useIngestJob(jobId: string | null) {
   const userId = useUserId();
+  const pollInterval = usePollInterval(INGEST_POLL_MS);
   return useQuery({
     queryKey: queryKeys.ingestJob(userId, jobId ?? 'none'),
     queryFn: () => api.getIngestJob(jobId ?? ''),
     enabled: userId !== null && jobId !== null,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === 'DONE' || status === 'FAILED' ? false : INGEST_POLL_MS;
+      return status === 'DONE' || status === 'FAILED' ? false : pollInterval;
     },
     staleTime: 0,
   });
@@ -161,6 +166,11 @@ function useRequisitionWriter() {
 export function useCorrectRequisition(id: string) {
   const write = useRequisitionWriter();
   return useMutation({ mutationFn: (text: string) => api.correctByText(id, text), onSuccess: write });
+}
+
+export function useCorrectByVoice(id: string) {
+  const write = useRequisitionWriter();
+  return useMutation({ mutationFn: (file: UploadFile) => api.correctByVoice(id, file), onSuccess: write });
 }
 
 export function useEditItem(id: string) {

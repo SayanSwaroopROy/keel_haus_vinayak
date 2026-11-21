@@ -10,6 +10,7 @@ export default function EngineerLayout() {
       <Stack.Screen name="new" options={{ presentation: 'modal' }} />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="requisition/[id]" />
+      <Stack.Screen name="review/[id]" />
     </Stack>
   );
 }

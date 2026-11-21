@@ -13,7 +13,17 @@ export type EndpointKey =
   | 'requisitions.readback'
   | 'requisitions.correct'
   | 'requisitions.editItem'
-  | 'requisitions.confirm';
+  | 'requisitions.confirm'
+  | 'rfqs.list'
+  | 'rfqs.get'
+  | 'conversations.list'
+  | 'messages.list'
+  | 'messages.send'
+  | 'alternatives.create'
+  | 'quotations.list'
+  | 'quotations.submit'
+  | 'workOrders.list'
+  | 'workOrders.get';
 
 const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>([
   // GET /users and X-User-Id are pending the backend's no-login rework.
@@ -31,6 +41,17 @@ const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>([
   'requisitions.correct',
   'requisitions.editItem',
   'requisitions.confirm',
+  // Phase 5 and 6 vendor endpoints are not built yet.
+  'rfqs.list',
+  'rfqs.get',
+  'conversations.list',
+  'messages.list',
+  'messages.send',
+  'alternatives.create',
+  'quotations.list',
+  'quotations.submit',
+  'workOrders.list',
+  'workOrders.get',
 ]);
 
 export function isMocked(key: EndpointKey): boolean {

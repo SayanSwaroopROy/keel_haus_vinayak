@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { apiFetch } from './client';
 import { mockHandlers } from './mocks/handlers';
+import { vendorMocks } from './mocks/vendor';
 import { isMocked } from './mode';
 import {
   IngestJobSchema,
@@ -22,6 +23,22 @@ import {
   type Role,
   type User,
 } from './schemas';
+import {
+  AlternativeSchema,
+  ConversationSchema,
+  MessageSchema,
+  QuotationSchema,
+  RfqSchema,
+  WorkOrderSchema,
+  type Alternative,
+  type AlternativeInput,
+  type Conversation,
+  type Message,
+  type Quotation,
+  type QuotationInput,
+  type Rfq,
+  type WorkOrder,
+} from './schemas-vendor';
 
 export type UploadFile = { uri: string; name: string; mimeType: string };
 
@@ -104,6 +121,13 @@ export const api = {
     return apiFetch(`/requisitions/${id}/correct`, { method: 'POST', body: { text }, schema: RequisitionSchema });
   },
 
+  correctByVoice(id: string, file: UploadFile): Promise<Requisition> {
+    if (isMocked('requisitions.correct')) return mockHandlers.correctByVoice(id);
+    const form = new FormData();
+    appendFile(form, 'audio', file);
+    return apiFetch(`/requisitions/${id}/correct`, { method: 'POST', formData: form, schema: RequisitionSchema });
+  },
+
   editItem(id: string, itemId: string, patch: Partial<ReqItem>): Promise<Requisition> {
     if (isMocked('requisitions.editItem')) return mockHandlers.editItem(id, itemId, patch);
     return apiFetch(`/requisitions/${id}/items/${itemId}`, { method: 'PATCH', body: patch, schema: RequisitionSchema });
@@ -112,5 +136,65 @@ export const api = {
   confirm(id: string): Promise<Requisition> {
     if (isMocked('requisitions.confirm')) return mockHandlers.confirm(id);
     return apiFetch(`/requisitions/${id}/confirm`, { method: 'POST', body: {}, schema: RequisitionSchema });
+  },
+
+  // Vendor app. The server returns only the signed-in vendor's own rows.
+  listRfqs(): Promise<Rfq[]> {
+    if (isMocked('rfqs.list')) return vendorMocks.listRfqs();
+    return apiFetch('/rfqs', { schema: z.array(RfqSchema) });
+  },
+
+  getRfq(id: string): Promise<Rfq> {
+    if (isMocked('rfqs.get')) return vendorMocks.getRfq(id);
+    return apiFetch(`/rfqs/${id}`, { schema: RfqSchema });
+  },
+
+  listConversations(): Promise<Conversation[]> {
+    if (isMocked('conversations.list')) return vendorMocks.listConversations();
+    return apiFetch('/conversations', { schema: z.array(ConversationSchema) });
+  },
+
+  listMessages(conversationId: string): Promise<Message[]> {
+    if (isMocked('messages.list')) return vendorMocks.listMessages(conversationId);
+    return apiFetch(`/conversations/${conversationId}/messages`, { schema: z.array(MessageSchema) });
+  },
+
+  sendTextMessage(conversationId: string, text: string, rfqItemId: string | null): Promise<Message> {
+    if (isMocked('messages.send')) return vendorMocks.sendMessage(conversationId, { text, rfqItemId, audio: null });
+    const body = rfqItemId === null ? { text } : { text, rfq_item_id: rfqItemId };
+    return apiFetch(`/conversations/${conversationId}/messages`, { method: 'POST', body, schema: MessageSchema });
+  },
+
+  sendVoiceMessage(conversationId: string, audio: UploadFile, rfqItemId: string | null): Promise<Message> {
+    if (isMocked('messages.send')) return vendorMocks.sendMessage(conversationId, { text: null, rfqItemId, audio });
+    const form = new FormData();
+    appendFile(form, 'audio', audio);
+    if (rfqItemId !== null) form.append('rfq_item_id', rfqItemId);
+    return apiFetch(`/conversations/${conversationId}/messages`, { method: 'POST', formData: form, schema: MessageSchema });
+  },
+
+  proposeAlternative(input: AlternativeInput): Promise<Alternative> {
+    if (isMocked('alternatives.create')) return vendorMocks.proposeAlternative(input);
+    return apiFetch('/alternatives', { method: 'POST', body: input, schema: AlternativeSchema });
+  },
+
+  listQuotations(rfqId: string): Promise<Quotation[]> {
+    if (isMocked('quotations.list')) return vendorMocks.listQuotations(rfqId);
+    return apiFetch(`/rfqs/${rfqId}/quotations`, { schema: z.array(QuotationSchema) });
+  },
+
+  submitQuotation(rfqId: string, input: QuotationInput): Promise<Quotation> {
+    if (isMocked('quotations.submit')) return vendorMocks.submitQuotation(rfqId, input);
+    return apiFetch(`/rfqs/${rfqId}/quotations`, { method: 'POST', body: input, schema: QuotationSchema });
+  },
+
+  listWorkOrders(): Promise<WorkOrder[]> {
+    if (isMocked('workOrders.list')) return vendorMocks.listWorkOrders();
+    return apiFetch('/work-orders', { schema: z.array(WorkOrderSchema) });
+  },
+
+  getWorkOrder(id: string): Promise<WorkOrder> {
+    if (isMocked('workOrders.get')) return vendorMocks.getWorkOrder(id);
+    return apiFetch(`/work-orders/${id}`, { schema: WorkOrderSchema });
   },
 };

@@ -1,15 +1,16 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
+import { Button } from '@/components/button';
+import { ItemRow } from '@/components/item-row';
 import { needsEngineer, STATUS, StatusBadge } from '@/components/requisition-row';
 import { EmptyState, ErrorState, LoadingState, MockNotice } from '@/components/state-views';
 import { ThreadSteps } from '@/components/thread-steps';
 import { TopBar } from '@/components/top-bar';
 import { useProjects, useRequisition, useRevisions } from '@/lib/api/hooks';
-import type { ReqItem, Revision } from '@/lib/api/schemas';
-import { figure, INPUT_LABEL, LANG_LABEL, relativeTime, shortDate } from '@/lib/format';
+import type { Revision } from '@/lib/api/schemas';
+import { INPUT_LABEL, LANG_LABEL, relativeTime, shortDate } from '@/lib/format';
 import { buildJourney } from '@/lib/journey';
 import { colors, radius, space, type } from '@/theme/tokens';
 
@@ -17,49 +18,6 @@ function actorLabel(actor: string): string {
   if (actor === 'ai') return 'AI reading';
   if (actor === 'user') return 'You';
   return actor;
-}
-
-function ItemRow({ line, index }: { line: ReqItem; index: number }) {
-  const unsure = line.uncertain_fields.length > 0;
-  const quantity = line.quantity === null ? null : figure(line.quantity);
-  const spoken = line.original_qty !== null && line.original_uom ? `Said ${figure(line.original_qty)} ${line.original_uom}` : null;
-
-  return (
-    <View
-      style={styles.item}
-      accessible
-      accessibilityLabel={`Item ${index + 1}. ${line.description}. ${
-        quantity === null ? 'Quantity not provided' : `${quantity} ${line.uom ?? 'unit not provided'}`
-      }.${unsure ? ` Unsure about ${line.uncertain_fields.join(' and ')}.` : ''}`}>
-      <View style={styles.itemMain}>
-        <Text style={styles.itemIndex}>{String(index + 1).padStart(2, '0')}</Text>
-        <View style={styles.itemText}>
-          <Text style={styles.itemTitle}>{line.description}</Text>
-          <Text style={styles.itemMeta}>
-            {[line.wo_code, line.item_code, line.category, line.brand].filter((part): part is string => !!part).join(' · ') ||
-              (line.kind === 'work' ? 'Work item' : 'Material')}
-          </Text>
-        </View>
-        <View style={styles.qty}>
-          {quantity === null ? (
-            <Text style={styles.qtyMissing}>Not provided</Text>
-          ) : (
-            <Text style={styles.qtyFigure}>{quantity}</Text>
-          )}
-          <Text style={[styles.qtyUnit, line.uom === null && styles.qtyMissing]}>{line.uom ?? (quantity === null ? '' : 'unit?')}</Text>
-        </View>
-      </View>
-      {spoken ? <Text style={styles.itemNote}>{spoken}, converted. {line.remarks ?? ''}</Text> : null}
-      {unsure ? (
-        <View style={styles.unsure}>
-          <Icon name="warning" size={16} color={colors.unsureInk} />
-          <Text style={styles.unsureText}>
-            {line.clarification_question ?? `Please check ${line.uncertain_fields.join(' and ')}.`}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
 }
 
 function RevisionRow({ revision, latest }: { revision: Revision; latest: boolean }) {
@@ -159,6 +117,11 @@ export default function RequisitionDetail() {
                   : 'All items are clear. Confirm when you are happy with them.'
                 : 'Open the question from the HOD and answer it.'}
             </Text>
+            <Button
+              label={data.status === 'PENDING_CONFIRMATION' ? 'Review and confirm' : 'Answer the question'}
+              icon="check"
+              onPress={() => router.push({ pathname: '/review/[id]', params: { id: data.id } })}
+            />
           </View>
         ) : null}
 

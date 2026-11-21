@@ -25,6 +25,10 @@ const ICONS = {
   pause: { ios: 'pause.fill', android: 'pause' },
   stop: { ios: 'stop.fill', android: 'stop' },
   gallery: { ios: 'photo.on.rectangle', android: 'photo_library' },
+  send: { ios: 'arrow.up', android: 'send' },
+  swap: { ios: 'arrow.left.arrow.right', android: 'compare_arrows' },
+  orders: { ios: 'shippingbox', android: 'inventory_2' },
+  clock: { ios: 'clock', android: 'schedule' },
 } as const;
 
 export type IconName = keyof typeof ICONS;

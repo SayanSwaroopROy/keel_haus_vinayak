@@ -1,12 +1,4 @@
-import {
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-  useAudioPlayer,
-  useAudioPlayerStatus,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +18,7 @@ import { TextRequisitionInputSchema } from '@/lib/api/schemas';
 import type { UploadFile } from '@/lib/api/endpoints';
 import { clock, fileSize, INPUT_LABEL, LANG_LABEL } from '@/lib/format';
 import { useIdentity } from '@/lib/identity';
+import { useVoiceNote } from '@/lib/use-voice-note';
 import { DOCUMENT_MIME_TYPES, inputTypeFor, MAX_UPLOAD_BYTES } from '@/lib/upload';
 import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
 
@@ -152,58 +145,30 @@ function LiveDot() {
 }
 
 function VoiceCapture({ onRecorded, onProblem }: { onRecorded: (draft: Draft) => void; onProblem: (message: string) => void }) {
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const state = useAudioRecorderState(recorder, 250);
-  const [starting, setStarting] = useState(false);
-  const recording = state.isRecording;
+  const voice = useVoiceNote();
+  const { problem } = voice;
 
-  async function start() {
-    setStarting(true);
-    try {
-      const permission = await requestRecordingPermissionsAsync();
-      if (!permission.granted) {
-        onProblem('Microphone access is off. Allow it in your phone settings, or send a photo or text instead.');
-        return;
-      }
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-    } catch {
-      onProblem('Could not start the microphone. Try again, or send a photo or text instead.');
-    } finally {
-      setStarting(false);
-    }
+  useEffect(() => {
+    if (problem) onProblem(problem);
+  }, [problem, onProblem]);
+
+  async function finish() {
+    const note = await voice.stop();
+    if (note) onRecorded({ inputType: 'voice', file: note.file, size: null, durationMs: note.durationMs });
   }
 
-  async function stop() {
-    const durationMs = state.durationMillis;
-    try {
-      await recorder.stop();
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-    } catch {
-      onProblem('The recording could not be saved. Try again.');
-      return;
-    }
-    const uri = recorder.uri;
-    if (!uri) {
-      onProblem('The recording could not be saved. Try again.');
-      return;
-    }
-    onRecorded({ inputType: 'voice', file: { uri, name: 'voice-note.m4a', mimeType: 'audio/mp4' }, size: null, durationMs });
-  }
-
-  if (recording) {
+  if (voice.recording) {
     return (
       <View style={styles.stack} accessibilityLiveRegion="polite">
         <View style={styles.recordingHead}>
           <LiveDot />
           <Text style={styles.recordingLabel}>Recording</Text>
         </View>
-        <Text style={styles.clock} accessibilityLabel={`${Math.floor(state.durationMillis / 1000)} seconds`}>
-          {clock(state.durationMillis)}
+        <Text style={styles.clock} accessibilityLabel={`${Math.floor(voice.durationMs / 1000)} seconds`}>
+          {clock(voice.durationMs)}
         </Text>
         <Text style={styles.meta}>Say each item with its quantity and unit. Speak in Bengali, Hindi or English.</Text>
-        <Button label="Stop and review" icon="stop" onPress={() => void stop()} />
+        <Button label="Stop and review" icon="stop" onPress={() => void finish()} />
       </View>
     );
   }
@@ -212,7 +177,7 @@ function VoiceCapture({ onRecorded, onProblem }: { onRecorded: (draft: Draft) =>
     <View style={styles.stack}>
       <Text style={styles.script}>বলুন · बोलिए</Text>
       <Text style={styles.body}>Speak the requirement. You will hear it checked back before anything is sent.</Text>
-      <Button label="Record voice note" icon="mic" onPress={() => void start()} loading={starting} />
+      <Button label="Record voice note" icon="mic" onPress={() => void voice.start()} loading={voice.starting} />
     </View>
   );
 }

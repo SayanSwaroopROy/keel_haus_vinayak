@@ -188,5 +188,56 @@ export function seedNotifications(): Record<string, AppNotification[]> {
         read_at: hoursAgo(20),
       },
     ],
+    [uid(4, 3)]: [
+      {
+        id: uid(71, 1),
+        type: 'revision_requested',
+        ref_type: 'rfq',
+        ref_id: uid(91, 1),
+        title: 'Vinayak asked for a revised quotation on the Road / Civil RFQ',
+        created_at: hoursAgo(3),
+        read_at: null,
+      },
+      {
+        id: uid(71, 2),
+        type: 'rfq_received',
+        ref_type: 'rfq',
+        ref_id: uid(91, 2),
+        title: 'New RFQ: Waterproofing',
+        created_at: hoursAgo(5),
+        read_at: null,
+      },
+      {
+        id: uid(71, 3),
+        type: 'work_order_issued',
+        ref_type: 'work_order',
+        ref_id: uid(97, 1),
+        title: 'Work Order VG/DEMO1/WO/26-27/001 has been issued to you',
+        created_at: hoursAgo(5),
+        read_at: hoursAgo(4),
+      },
+    ],
+    [uid(4, 4)]: [
+      {
+        id: uid(71, 4),
+        type: 'rfq_received',
+        ref_type: 'rfq',
+        ref_id: uid(91, 2),
+        title: 'New RFQ: Waterproofing',
+        created_at: hoursAgo(5),
+        read_at: null,
+      },
+    ],
+    [uid(4, 5)]: [
+      {
+        id: uid(71, 5),
+        type: 'rfq_received',
+        ref_type: 'rfq',
+        ref_id: uid(91, 2),
+        title: 'New RFQ: Waterproofing',
+        created_at: hoursAgo(5),
+        read_at: null,
+      },
+    ],
   };
 }
