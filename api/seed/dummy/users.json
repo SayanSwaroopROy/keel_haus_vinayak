@@ -1,0 +1,5 @@
+[
+  {"username": "engineer1", "name": "Site Engineer One (demo)", "role": "site_engineer"},
+  {"username": "engineer2", "name": "Site Engineer Two (demo)", "role": "site_engineer"},
+  {"username": "hod", "name": "HOD Contracts (demo)", "role": "hod"}
+]

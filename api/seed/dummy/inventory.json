@@ -1,0 +1,8 @@
+[
+  {"material": "Cement", "uom": "BAG", "physical": 5000, "reserved": 1000},
+  {"material": "Sand", "uom": "CFT", "physical": 8000, "reserved": 0},
+  {"material": "Stone Dust", "uom": "CFT", "physical": 0, "reserved": 0},
+  {"material": "Paver Block 60mm", "uom": "SQM", "physical": 400, "reserved": 100},
+  {"material": "Precast Kerb Stone", "uom": "NOS", "physical": 120, "reserved": 20},
+  {"material": "Stucco Plaster", "uom": "BAG", "physical": 900, "reserved": 150}
+]
