@@ -175,9 +175,11 @@ function Statement({ rfq, evaluation, vendors }: { rfq: Rfq; evaluation: Evaluat
           <tr>
             <th scope="row" className="sticky left-0 bg-background py-3 pr-4 text-left align-top font-normal">
               Past performance
-              <span className="mt-0.5 block">
-                <DummyBadge>Demo history</DummyBadge>
-              </span>
+              {rows.some((row) => row.performance_is_dummy) ? (
+                <span className="mt-0.5 block">
+                  <DummyBadge>Demo history</DummyBadge>
+                </span>
+              ) : null}
             </th>
             {rows.map((row) => {
               const performance = vendors.find((vendor) => vendor.id === row.vendor_id)?.performance;
@@ -223,7 +225,12 @@ function Selection({ rfq, evaluation, vendors }: { rfq: Rfq; evaluation: Evaluat
 
   const selected = evaluation.item_selections;
   const locked = selected !== null && !editing;
-  const complete = rfq.items.every((item) => picks[item.id]);
+  // A vendor can be picked for a line only with a priced quote and while not blocked. A line nobody priced may stay unawarded.
+  const canPick = (row: Evaluation["rows"][number], itemId: string) =>
+    !row.blocked && row.line_items.find((entry) => entry.rfq_item_id === itemId)?.line_total != null;
+  const needsPick = (itemId: string) => evaluation.rows.some((row) => canPick(row, itemId));
+  const complete = rfq.items.every((item) => !needsPick(item.id) || picks[item.id]);
+  const pickedItems = rfq.items.filter((item) => picks[item.id]);
   const issued = (workOrders.data ?? []).filter((order) => order.rfq_id === rfq.id && order.status !== "CANCELLED");
   const chosenVendors = selected ? [...new Set(selected.map((row) => row.vendor_id))].map((id) => vendors.find((vendor) => vendor.id === id)).filter((vendor): vendor is Vendor => vendor !== undefined) : [];
   const unregistered = chosenVendors.filter((vendor) => !vendor.registered);
@@ -332,11 +339,13 @@ function Selection({ rfq, evaluation, vendors }: { rfq: Rfq; evaluation: Evaluat
                       {evaluation.rows.map((row) => {
                         const line = row.line_items.find((entry) => entry.rfq_item_id === item.id);
                         const suggested = draftPick?.vendor_id === row.vendor_id;
+                        const pickable = canPick(row, item.id);
                         return (
-                          <label key={row.vendor_id} className="flex min-h-11 cursor-pointer items-center gap-3 py-2 text-sm">
+                          <label key={row.vendor_id} className={cn("flex min-h-11 items-center gap-3 py-2 text-sm", pickable ? "cursor-pointer" : "cursor-not-allowed opacity-60")}>
                             <input
                               type="radio"
                               name={`pick-${item.id}`}
+                              disabled={!pickable}
                               checked={picks[item.id] === row.vendor_id}
                               onChange={() => setPicks((current) => ({ ...current, [item.id]: row.vendor_id }))}
                               className="size-4 shrink-0 accent-binding"
@@ -344,13 +353,14 @@ function Selection({ rfq, evaluation, vendors }: { rfq: Rfq; evaluation: Evaluat
                             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                               <span className="font-medium">{row.vendor_name}</span>
                               {suggested ? <Badge variant="outline">Draft pick</Badge> : null}
+                              {row.blocked ? <Badge variant="outline">Blocked vendor</Badge> : !pickable ? <Badge variant="outline">No price for this line</Badge> : null}
                             </span>
                             <Figure value={formatInr(line?.line_total ?? null)} />
                           </label>
                         );
                       })}
                     </div>
-                    {draftPick ? <p className="pt-1 text-xs text-muted-foreground">{draftPick.reasoning}</p> : null}
+                    {draftPick ? <p className="pt-1 text-xs text-muted-foreground">{draftPick.vendor_id === null ? `No clean quote for this line. ${draftPick.reasoning}` : draftPick.reasoning}</p> : null}
                   </fieldset>
                 </li>
               );
@@ -379,7 +389,7 @@ function Selection({ rfq, evaluation, vendors }: { rfq: Rfq; evaluation: Evaluat
             error={select.error}
             onConfirm={(note) =>
               select.mutate(
-                { evaluationId: evaluation.id, input: { selections: rfq.items.map((item) => ({ rfq_item_id: item.id, vendor_id: picks[item.id] })), note } },
+                { evaluationId: evaluation.id, input: { selections: pickedItems.map((item) => ({ rfq_item_id: item.id, vendor_id: picks[item.id] })), note } },
                 {
                   onSuccess: () => {
                     setNoteOpen(false);
@@ -431,14 +441,13 @@ export function ComparisonPanel({ rfq, quoteCount }: { rfq: Rfq; quoteCount: num
           <section aria-label="Draft recommendation" className="flex flex-col gap-1 rounded-md bg-ledger px-4 py-3">
             <h2 className="text-sm font-medium">Draft recommendation, computed from the table</h2>
             <p className="text-sm">
-              {overall ? (
-                <>
-                  <span className="font-medium">{overall.vendor_name}</span> scores highest overall ({overall.final_score}) on price, past performance, compliance, start time and terms.
-                </>
-              ) : (
-                "No complete quotation to rank yet."
-              )}{" "}
+              {evaluation.recommendation.reasoning ||
+                (overall ? `${overall.vendor_name} scores highest overall (${overall.final_score}).` : "No vendor is recommended overall yet.")}{" "}
               <span className="text-muted-foreground">It is a starting point. You choose per line item, and never on price alone.</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {evaluation.recommendation.source === "fallback" ? "Plain calculation from the table, no AI wording. " : "Wording drafted by AI from the table. "}
+              {evaluation.recommendation.basis}
             </p>
           </section>
 

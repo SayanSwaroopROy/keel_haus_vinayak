@@ -5,6 +5,7 @@ export type Tone = 'decision' | 'waiting' | 'settled' | 'closed';
 
 // What each RFQ means for the vendor, in the vendor's words. `decision` means the vendor must act.
 export const RFQ_STATUS: Record<RfqVendorStatus, { label: string; tone: Tone }> = {
+  DRAFT: { label: 'Not yet open', tone: 'waiting' },
   RFQ_SENT: { label: 'New RFQ', tone: 'decision' },
   RFQ_VIEWED: { label: 'Quote due', tone: 'decision' },
   VENDOR_RESPONDED: { label: 'Quote due', tone: 'decision' },
@@ -15,6 +16,8 @@ export const RFQ_STATUS: Record<RfqVendorStatus, { label: string; tone: Tone }> 
   REVISION_REQUESTED: { label: 'Revised quote asked', tone: 'decision' },
   AWARDED: { label: 'Awarded to you', tone: 'settled' },
   NOT_AWARDED: { label: 'Not awarded', tone: 'closed' },
+  CLOSED: { label: 'RFQ closed', tone: 'closed' },
+  CANCELLED: { label: 'RFQ cancelled', tone: 'closed' },
 };
 
 export type RfqFilter = 'all' | 'act' | 'waiting' | 'done';
@@ -35,7 +38,20 @@ export function matchesFilter(status: RfqVendorStatus, filter: RfqFilter): boole
 }
 
 export function canQuote(status: RfqVendorStatus): boolean {
-  return status !== 'AWARDED' && status !== 'NOT_AWARDED';
+  return !NO_QUOTE.has(status);
+}
+
+const NO_QUOTE: ReadonlySet<RfqVendorStatus> = new Set<RfqVendorStatus>(['AWARDED', 'NOT_AWARDED', 'CLOSED', 'CANCELLED', 'DRAFT']);
+
+// Quotation review state, in the vendor's words.
+const QUOTATION_STATUS: Record<string, { label: string; tone: Tone }> = {
+  SUBMITTED: { label: 'Received by Vinayak', tone: 'waiting' },
+  NEEDS_REVIEW: { label: 'Vinayak is checking some points', tone: 'waiting' },
+  VERIFIED: { label: 'Checked and verified', tone: 'settled' },
+};
+
+export function quotationStatus(status: string): { label: string; tone: Tone } {
+  return QUOTATION_STATUS[status] ?? { label: status.replace(/_/g, ' ').toLowerCase(), tone: 'waiting' };
 }
 
 export const WO_STATUS: Record<WorkOrderStatus, { label: string; tone: Tone }> = {

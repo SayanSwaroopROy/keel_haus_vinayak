@@ -23,7 +23,9 @@ export type EndpointKey =
   | 'quotations.list'
   | 'quotations.submit'
   | 'workOrders.list'
-  | 'workOrders.get';
+  | 'workOrders.get'
+  | 'workOrders.acknowledge'
+  | 'alternatives.reply';
 
 const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>([
   // GET /users and X-User-Id are pending the backend's no-login rework.
@@ -52,6 +54,8 @@ const MOCKED: ReadonlySet<EndpointKey> = new Set<EndpointKey>([
   'quotations.submit',
   'workOrders.list',
   'workOrders.get',
+  'workOrders.acknowledge',
+  'alternatives.reply',
 ]);
 
 export function isMocked(key: EndpointKey): boolean {

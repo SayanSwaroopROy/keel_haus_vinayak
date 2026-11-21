@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ClipboardPenIcon, PrinterIcon, SendIcon, Undo2Icon } from "lucide-react";
+import { CheckIcon, ClipboardPenIcon, PrinterIcon, SendIcon, Undo2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api/errors";
 import { useProjectLookup, useRequisition, useVendors } from "@/lib/api/hooks";
-import { useDecideWorkOrder, useSubmitWorkOrder, useWorkOrder } from "@/lib/api/hooks-flow";
+import { useCancelWorkOrder, useCompleteWorkOrder, useDecideWorkOrder, useSubmitWorkOrder, useWorkOrder } from "@/lib/api/hooks-flow";
 import type { WorkOrder } from "@/lib/api/schemas-flow";
 import { useSession } from "@/lib/auth/session";
 import { formatDate, formatInr, formatQty, reqNumber } from "@/lib/format";
@@ -41,9 +41,15 @@ function FeedbackAction({ order }: { order: WorkOrder }) {
 
 function Actions({ order }: { order: WorkOrder }) {
   const role = useSession((state) => state.user?.role);
-  const [dialog, setDialog] = useState<"submit" | "approve" | "reject" | null>(null);
+  const [dialog, setDialog] = useState<"submit" | "approve" | "reject" | "complete" | "cancel" | null>(null);
   const submit = useSubmitWorkOrder();
   const decide = useDecideWorkOrder();
+  const complete = useCompleteWorkOrder();
+  const cancel = useCancelWorkOrder();
+  const issued = order.status === "SENT" || order.status === "ACKNOWLEDGED";
+  // The HOD cancels before it is sent; once sent, only management can.
+  const canCancel =
+    (role === "hod" && (order.status === "GENERATED" || order.status === "PENDING_APPROVAL")) || (role === "management" && issued);
 
   const close = () => setDialog(null);
   const approvalCopy = {
@@ -70,6 +76,18 @@ function Actions({ order }: { order: WorkOrder }) {
             Send back
           </Button>
         </>
+      ) : null}
+      {role === "hod" && order.status === "ACKNOWLEDGED" ? (
+        <Button onClick={() => setDialog("complete")}>
+          <CheckIcon data-icon="inline-start" />
+          Mark complete
+        </Button>
+      ) : null}
+      {canCancel ? (
+        <Button variant="ghost" className="text-binding hover:bg-accent hover:text-binding" onClick={() => setDialog("cancel")}>
+          <XIcon data-icon="inline-start" />
+          Cancel Work Order
+        </Button>
       ) : null}
       {role === "hod" && (order.status === "SENT" || order.status === "ACKNOWLEDGED" || order.status === "COMPLETED") ? (
         <FeedbackAction order={order} />
@@ -127,6 +145,49 @@ function Actions({ order }: { order: WorkOrder }) {
         />
       ) : null}
 
+      <ConfirmDialog
+        open={dialog === "complete"}
+        onOpenChange={(next) => (next ? null : close())}
+        title="Mark this Work Order complete"
+        description={`${order.wo_number} is recorded as delivered. You can then rate ${order.vendor.name}.`}
+        confirmLabel="Mark complete"
+        pending={complete.isPending}
+        error={complete.error}
+        onConfirm={() =>
+          complete.mutate(order.id, {
+            onSuccess: () => {
+              close();
+              toast.add({ title: `${order.wo_number} completed`, type: "success" });
+            },
+          })
+        }
+      />
+
+      {dialog === "cancel" ? (
+        <NoteDialog
+          open
+          onOpenChange={(next) => (next ? null : close())}
+          title="Cancel this Work Order"
+          description={`${order.wo_number} · ${order.vendor.name}. A reason is required and goes on the record.`}
+          confirmLabel="Cancel Work Order"
+          placeholder="e.g. Vendor withdrew the quote"
+          severe
+          pending={cancel.isPending}
+          error={cancel.error}
+          onConfirm={(note) =>
+            cancel.mutate(
+              { id: order.id, input: { reason: note } },
+              {
+                onSuccess: () => {
+                  close();
+                  toast.add({ title: `${order.wo_number} cancelled`, type: "success" });
+                },
+                onError: (error) => toast.add({ title: "Couldn't cancel", description: describeError(error), type: "error" }),
+              },
+            )
+          }
+        />
+      ) : null}
     </div>
   );
 }

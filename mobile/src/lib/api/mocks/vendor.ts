@@ -5,6 +5,7 @@ import type { UploadFile } from '../endpoints';
 import type {
   Alternative,
   AlternativeInput,
+  AlternativeReplyInput,
   Conversation,
   Message,
   Quotation,
@@ -474,6 +475,19 @@ export const vendorMocks = {
     return clone(alternative);
   },
 
+  async replyAlternative(id: string, input: AlternativeReplyInput): Promise<Alternative> {
+    await delay(600);
+    const vendorId = currentVendorId();
+    const alternative = store.alternatives.find((candidate) => candidate.id === id && candidate.vendor_id === vendorId);
+    if (!alternative) throw new ApiError(404, 'not_found', 'Alternative not found.');
+    if (alternative.status !== 'INFO_REQUESTED') throw new ApiError(409, 'invalid_transition', 'The HOD has not asked for more information on this alternative.');
+    if (input.note.trim() === '') throw new ApiError(422, 'validation_error', 'Write your answer for the HOD.');
+    const spec = input.proposed_spec?.trim();
+    alternative.status = 'PROPOSED';
+    if (spec) alternative.proposed_spec = spec;
+    return clone(alternative);
+  },
+
   async listQuotations(rfqId: string): Promise<Quotation[]> {
     await delay();
     const vendorId = currentVendorId();
@@ -514,6 +528,16 @@ export const vendorMocks = {
         .filter((order) => order.vendor.id === vendorId && VISIBLE_WO.has(order.status))
         .sort((left, right) => right.created_at.localeCompare(left.created_at)),
     );
+  },
+
+  async acknowledgeWorkOrder(id: string): Promise<WorkOrder> {
+    await delay(600);
+    const vendorId = currentVendorId();
+    const order = store.workOrders.find((candidate) => candidate.id === id);
+    if (!order || order.vendor.id !== vendorId || !VISIBLE_WO.has(order.status)) throw new ApiError(404, 'not_found', 'Work order not found.');
+    if (order.status !== 'SENT') throw new ApiError(409, 'invalid_transition', 'Only an issued Work Order can be acknowledged.');
+    order.status = 'ACKNOWLEDGED';
+    return clone(order);
   },
 
   async getWorkOrder(id: string): Promise<WorkOrder> {

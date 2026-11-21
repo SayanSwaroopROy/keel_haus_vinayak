@@ -42,7 +42,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 
 export async function apiFetch<T>(path: string, options: RequestOptions<T>): Promise<T> {
   const { method = 'GET', body, formData, schema, identified = true } = options;
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (identified) Object.assign(headers, identityHeader());
 

@@ -1,18 +1,21 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { FormField } from '@/components/form-field';
 import { Icon } from '@/components/icon';
 import { EmptyState, ErrorState, LoadingState, MockNotice } from '@/components/state-views';
 import { ToneBadge } from '@/components/tone-badge';
 import { TopBar } from '@/components/top-bar';
-import { ownEntry, useConversationForRfq, useQuotations, useRfq, useSentAlternatives } from '@/lib/api/hooks-vendor';
-import type { Alternative, Quotation, RfqItem } from '@/lib/api/schemas-vendor';
+import { describeError } from '@/lib/api/errors';
+import { ownEntry, useConversationForRfq, useQuotations, useReplyAlternative, useRfq, useSentAlternatives } from '@/lib/api/hooks-vendor';
+import { AlternativeReplyInputSchema, type Alternative, type Quotation, type RfqItem, type RfqVendorStatus } from '@/lib/api/schemas-vendor';
 import { figure } from '@/lib/format';
 import { useIdentity } from '@/lib/identity';
 import { quoteTotals } from '@/lib/quote-math';
-import { canQuote, dueLabel, flagLabel, RFQ_STATUS, rupees } from '@/lib/vendor-status';
+import { canQuote, dueLabel, flagLabel, quotationStatus, RFQ_STATUS, rupees } from '@/lib/vendor-status';
 import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
 
 const ALTERNATIVE_LABEL: Record<Alternative['status'], string> = {
@@ -22,7 +25,39 @@ const ALTERNATIVE_LABEL: Record<Alternative['status'], string> = {
   INFO_REQUESTED: 'HOD asked for more information',
 };
 
-function ItemBlock({ item, index, alternative, canPropose, onPropose }: { item: RfqItem; index: number; alternative: Alternative | null; canPropose: boolean; onPropose: () => void }) {
+function ReplyForm({ rfqId, alternative }: { rfqId: string; alternative: Alternative }) {
+  const reply = useReplyAlternative(rfqId);
+  const [note, setNote] = useState('');
+  const [spec, setSpec] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+
+  function send() {
+    const trimmedSpec = spec.trim();
+    const parsed = AlternativeReplyInputSchema.safeParse({ note, proposed_spec: trimmedSpec === '' ? undefined : trimmedSpec });
+    if (!parsed.success) {
+      setProblem(parsed.error.issues[0]?.message ?? 'Check your answer.');
+      return;
+    }
+    setProblem(null);
+    reply.mutate({ id: alternative.id, input: parsed.data });
+  }
+
+  return (
+    <View style={styles.reply}>
+      <FormField label="Your answer to the HOD" value={note} onChangeText={setNote} multiline error={problem} placeholder="Answer what the HOD asked" />
+      <FormField label="Revised specification (optional)" value={spec} onChangeText={setSpec} multiline hint="Only fill this in if your proposal changes." />
+      {reply.isError ? (
+        <View style={styles.flags} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+          <Icon name="warning" size={16} color={colors.binding} />
+          <Text style={styles.flagText}>{describeError(reply.error)}</Text>
+        </View>
+      ) : null}
+      <Button label="Send answer" onPress={send} loading={reply.isPending} />
+    </View>
+  );
+}
+
+function ItemBlock({ rfqId, item, index, alternative, canPropose, onPropose }: { rfqId: string; item: RfqItem; index: number; alternative: Alternative | null; canPropose: boolean; onPropose: () => void }) {
   return (
     <View style={styles.item}>
       <View style={styles.itemMain}>
@@ -47,6 +82,7 @@ function ItemBlock({ item, index, alternative, canPropose, onPropose }: { item: 
           </Text>
         </View>
       ) : null}
+      {canPropose && alternative?.status === 'INFO_REQUESTED' ? <ReplyForm rfqId={rfqId} alternative={alternative} /> : null}
       {canPropose && !alternative ? (
         <View style={styles.itemAction}>
           <Button label="Propose an alternative" variant="ghost" onPress={onPropose} accessibilityHint={`For ${item.description}`} />
@@ -57,6 +93,7 @@ function ItemBlock({ item, index, alternative, canPropose, onPropose }: { item: 
 }
 
 function RoundCard({ quotation }: { quotation: Quotation }) {
+  const review = quotationStatus(quotation.status);
   const totals = quoteTotals(
     quotation.items.map((line) => ({ qty: line.qty_quoted, rate: line.rate })),
     quotation.gst_pct,
@@ -71,6 +108,7 @@ function RoundCard({ quotation }: { quotation: Quotation }) {
           {quotation.quote_date ? new Date(quotation.quote_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'No date'}
         </Text>
       </View>
+      <ToneBadge label={review.label} tone={review.tone} />
       <View style={styles.roundRow}>
         <Text style={styles.itemMeta}>Your stated total</Text>
         <Text style={styles.roundTotal}>{totals.total === null ? 'GST not stated' : rupees(totals.total)}</Text>
@@ -84,6 +122,14 @@ function RoundCard({ quotation }: { quotation: Quotation }) {
       ) : null}
     </View>
   );
+}
+
+function closedMessage(status: RfqVendorStatus): string {
+  if (status === 'AWARDED') return 'This RFQ was awarded to you. Your Work Order appears under Orders once it is issued.';
+  if (status === 'CANCELLED') return 'Vinayak cancelled this RFQ. Quotations are closed.';
+  if (status === 'CLOSED') return 'This RFQ is closed. Quotations are no longer accepted.';
+  if (status === 'DRAFT') return 'This RFQ is not open yet. You will be told when you can quote.';
+  return 'Vinayak has selected another vendor. Quotations are closed.';
 }
 
 export default function RfqDetail() {
@@ -168,7 +214,7 @@ export default function RfqDetail() {
           </View>
         ) : (
           <Text style={styles.closed}>
-            {entry.status === 'AWARDED' ? 'This RFQ was awarded to you. Your Work Order appears under Orders once it is issued.' : 'Vinayak has selected another vendor. Quotations are closed.'}
+            {closedMessage(entry.status)}
           </Text>
         )}
 
@@ -178,6 +224,7 @@ export default function RfqDetail() {
         {data.items.map((line, index) => (
           <ItemBlock
             key={line.id}
+            rfqId={data.id}
             item={line}
             index={index}
             alternative={sent.find((candidate) => candidate.rfq_item_id === line.id) ?? null}
@@ -238,6 +285,7 @@ const styles = StyleSheet.create({
   unit: { ...type.script, color: colors.mutedInk },
   altNote: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start', backgroundColor: colors.unsureSoft, borderRadius: radius.md, padding: space.row, marginLeft: 34 },
   altText: { ...type.meta, color: colors.unsureInk, flex: 1 },
+  reply: { gap: space.row, marginLeft: 34 },
   itemAction: { marginLeft: 34, alignSelf: 'flex-start', minHeight: TAP_TARGET },
   empty: { ...type.body, color: colors.mutedInk },
   round: { gap: space.xs, paddingVertical: space.row, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.rule },

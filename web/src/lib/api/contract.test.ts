@@ -17,6 +17,7 @@ import {
   StockRowSchema,
   VendorSchema,
 } from "./schemas";
+import { EvaluationSchema, RfqVendorSchema } from "./schemas-flow";
 
 describe("mock fixtures match the API contract", () => {
   it.each([
@@ -107,5 +108,46 @@ describe("mock decision flow", () => {
         expect(item?.kind).toBe("material");
       }
     }
+  });
+});
+
+describe("schemas accept what the real backend returns", () => {
+  it("a real stock row with a flag and a converted unit", () => {
+    const row = {
+      req_item_id: "00000000-0000-4000-8000-000000000001",
+      material: "Cement",
+      uom: "BAG",
+      kind: "material",
+      requested: 100,
+      physical: 40,
+      reserved: 0,
+      available: 40,
+      to_procure: 60,
+      is_dummy: false,
+      flag: "unit_converted",
+      requested_original: { qty: 5, uom: "MT" },
+    };
+    expect(StockRowSchema.safeParse(row).success).toBe(true);
+    expect(StockRowSchema.safeParse({ ...row, flag: "something_new" }).success).toBe(false);
+  });
+
+  it("RFQ vendor rows can be DRAFT, CLOSED or CANCELLED", () => {
+    for (const status of ["DRAFT", "CLOSED", "CANCELLED"]) {
+      const result = RfqVendorSchema.safeParse({ vendor_id: "00000000-0000-4000-8000-000000000002", vendor_name: "V", status, viewed_at: null });
+      expect(result.success, status).toBe(true);
+    }
+  });
+
+  it("a recommendation may have no vendor for a line and carries its source", () => {
+    const shape = EvaluationSchema.shape.recommendation;
+    const ok = shape.safeParse({
+      overall_vendor_id: null,
+      per_item: [{ rfq_item_id: "00000000-0000-4000-8000-000000000003", vendor_id: null, reasoning: "No clean quote" }],
+      reasoning: "Nothing to recommend",
+      basis: "table",
+      source: "fallback",
+    });
+    expect(ok.success).toBe(true);
+    expect(shape.safeParse({ overall_vendor_id: null, per_item: [], reasoning: "", basis: "", source: "magic" }).success).toBe(false);
   });
 });

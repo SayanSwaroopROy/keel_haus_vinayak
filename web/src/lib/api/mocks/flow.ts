@@ -1,6 +1,6 @@
 import { useSession } from "../../auth/session";
 import { ApiError } from "../errors";
-import type { RequisitionStatus, Role, Vendor } from "../schemas";
+import type { Requisition, RequisitionStatus, Role, Vendor } from "../schemas";
 import type {
   Alternative,
   AlternativeDecisionInput,
@@ -16,6 +16,7 @@ import type {
   RevisionRequestInput,
   SelectionInput,
   WoApprovalInput,
+  WoCancelInput,
   WorkOrder,
 } from "../schemas-flow";
 import { MOCK_PROJECTS } from "./fixtures";
@@ -34,6 +35,17 @@ function requireRole(...roles: Role[]): void {
 function setRequisitionStatus(id: string, status: RequisitionStatus): void {
   const requisition = getStore().requisitions.find((row) => row.id === id);
   if (requisition) requisition.status = status;
+}
+
+const CANCEL_BLOCKED: ReadonlySet<RequisitionStatus> = new Set(["WO_GENERATED", "ORDER_PLACED", "COMPLETED", "CANCELLED"]);
+
+function closeRfqRows(rfq: Rfq): void {
+  rfq.status = "CLOSED";
+  for (const row of rfq.vendors) {
+    if (row.status === "AWARDED" || row.status === "NOT_AWARDED") continue;
+    row.status = row.status === "DRAFT" ? "CANCELLED" : "CLOSED";
+  }
+  for (const conversation of getStore().conversations.filter((entry) => entry.rfq_id === rfq.id)) conversation.status = "closed";
 }
 
 function conversationFor(rfq: Rfq, vendorId: string): Conversation {
@@ -181,6 +193,28 @@ export const flowApi = {
     for (const row of rfq.vendors) pushMessage(conversationFor(rfq, row.vendor_id), "system", `RFQ sent. Due ${rfq.due_date}.`);
     setRequisitionStatus(rfq.requisition_id, "RFQ_FLOATED");
     return delay(rfq);
+  },
+
+  async closeRfq(id: string): Promise<Rfq> {
+    requireRole("hod");
+    const rfq = findRfq(id);
+    if (rfq.status !== "SENT") throw new ApiError(409, "invalid_transition", "Only an RFQ that is out for quotation can be closed.");
+    closeRfqRows(rfq);
+    return delay(rfq);
+  },
+
+  async cancelRequisition(id: string): Promise<Requisition> {
+    requireRole("hod", "site_engineer");
+    const requisition = getStore().requisitions.find((row) => row.id === id);
+    if (!requisition) throw new ApiError(404, "not_found", "Requisition not found.");
+    if (CANCEL_BLOCKED.has(requisition.status)) {
+      throw new ApiError(409, "invalid_transition", "A requisition cannot be cancelled once the work order exists or it is already closed.");
+    }
+    for (const rfq of getStore().rfqs.filter((row) => row.requisition_id === id && (row.status === "DRAFT" || row.status === "SENT"))) {
+      closeRfqRows(rfq);
+    }
+    requisition.status = "CANCELLED";
+    return delay(requisition);
   },
 
   async requestRevision(rfqId: string, input: RevisionRequestInput): Promise<Rfq["vendors"][number]> {
@@ -455,6 +489,34 @@ export const flowApi = {
       order.status = "GENERATED";
       notify("hod", "wo_decided", "work_order", order.id, `Work Order ${order.wo_number} sent back: ${input.note}`);
     }
+    return delay(order);
+  },
+
+  async completeWorkOrder(id: string): Promise<WorkOrder> {
+    requireRole("hod");
+    const order = findWorkOrder(id);
+    if (order.status !== "ACKNOWLEDGED") throw new ApiError(409, "invalid_transition", "Only an acknowledged work order can be completed.");
+    order.status = "COMPLETED";
+    const siblings = getStore().workOrders.filter((row) => row.requisition_id === order.requisition_id && row.status !== "CANCELLED");
+    if (siblings.every((row) => row.status === "COMPLETED")) setRequisitionStatus(order.requisition_id, "COMPLETED");
+    return delay(order);
+  },
+
+  async cancelWorkOrder(id: string, input: WoCancelInput): Promise<WorkOrder> {
+    requireRole("hod", "management");
+    const role = currentUser()?.role;
+    const order = findWorkOrder(id);
+    if (!input.reason.trim()) throw new ApiError(422, "validation_error", "Give a reason for cancelling.");
+    if (order.status === "COMPLETED" || order.status === "CANCELLED") {
+      throw new ApiError(409, "invalid_transition", "A completed or cancelled work order cannot be cancelled.");
+    }
+    const issued = order.status === "SENT" || order.status === "ACKNOWLEDGED";
+    if (role === "hod" && issued) throw new ApiError(403, "forbidden", "Only management can cancel a work order once it is sent.");
+    if (role === "management" && !issued) throw new ApiError(403, "forbidden", "Management cancels only after the work order is sent.");
+    order.status = "CANCELLED";
+    const live = getStore().workOrders.filter((row) => row.requisition_id === order.requisition_id && row.status !== "CANCELLED");
+    if (live.length === 0) setRequisitionStatus(order.requisition_id, "VENDOR_SELECTED");
+    notify(role === "management" ? "hod" : "management", "wo_decided", "work_order", order.id, `Work Order ${order.wo_number} cancelled: ${input.reason}`);
     return delay(order);
   },
 };

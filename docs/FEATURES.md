@@ -97,8 +97,8 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ## Phase 3: Mobile, Site Engineer (MOB)
 
-- [ ] `FE-MOB` Remove Expo template screens; routing with expo-router groups `(auth)`, `(engineer)`, `(vendor)`
-- [ ] `FE-MOB` API service layer (`src/lib/api.ts`) reading only `EXPO_PUBLIC_API_BASE_URL`; zod schemas mirroring contract
+- [x] `FE-MOB` Remove Expo template screens; routing with expo-router groups `(auth)`, `(engineer)`, `(vendor)`
+- [x] `FE-MOB` API service layer (`src/lib/api/client.ts`) reading only `EXPO_PUBLIC_API_BASE_URL`; zod schemas mirroring contract
 - [ ] `FE-MOB` Identity: role picker (engineer / vendor + vendor / HOD) from `GET /users`, store the chosen user id, send `X-User-Id`, switch user. No login, password or token.
 - [ ] `FE-MOB` Project picker
 - [ ] `FE-MOB` New requisition: record voice note (expo-audio)
@@ -117,7 +117,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ## Phase 4: HOD web core (WEB)
 
-- [ ] `FE-WEB` Next.js 16 app, shadcn/ui, TanStack Query, zod; read `web/AGENTS.md` first
+- [x] `FE-WEB` Next.js 16 app, shadcn/ui, TanStack Query, zod; read `web/AGENTS.md` first
 - [ ] `FE-WEB` HOD identity picker (no login); `X-User-Id` sent on every call
 - [ ] `FE-WEB` Layout: sidebar, notification bell, responsive
 - [ ] `FE-WEB` Dashboard: stats cards from `GET /dashboard/stats` (5 s poll)
@@ -225,22 +225,22 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ### Vendor app (MOB)
 
-- [ ] `FE-MOB` Quotation form (items, rates, GST, freight, payment terms, validity, start days, warranty)
-- [ ] `FE-MOB` My quotations and status, with rounds; "revision requested" prompt and resubmit through the same form
-- [ ] `FE-MOB` Work orders list and detail, acknowledge
+- [~] `FE-MOB` Quotation form (items, rates, GST, freight, payment terms, validity, start days, warranty)
+- [~] `FE-MOB` My quotations and status, with rounds; "revision requested" prompt and resubmit through the same form
+- [~] `FE-MOB` Work orders list and detail, acknowledge
 
 ### HOD web (WEB)
 
-- [ ] `FE-WEB` Quotation list per RFQ with flags, edit and verify
-- [ ] `FE-WEB` Enter a quotation on behalf of a vendor (same form)
-- [ ] `FE-WEB` Request revision from a vendor (with note)
-- [ ] `FE-WEB` Comparative Statement table (Vinayak format) with quote rounds, line-item comparison of quality (performance) vs price, + charts (recharts)
-- [ ] `FE-WEB` Weight sliders, recompute
-- [ ] `FE-WEB` Recommendation with reasoning; per-line-item vendor selection with note
-- [ ] `FE-WEB` Vendor registration checklist (tick items); shows registered or not
-- [ ] `FE-WEB` Create WO(s) after selection (blocked until checklist complete), WO view / print, Submit for approval
-- [ ] `FE-WEB` Management view (identity picker `management`): WO list, WO detail, Approve / Reject with note
-- [ ] `FE-WEB` Vendor feedback capture after completion (real performance rows)
+- [~] `FE-WEB` Quotation list per RFQ with flags, edit and verify
+- [~] `FE-WEB` Enter a quotation on behalf of a vendor (same form)
+- [~] `FE-WEB` Request revision from a vendor (with note)
+- [~] `FE-WEB` Comparative Statement table (Vinayak format) with quote rounds, line-item comparison of quality (performance) vs price, + charts (recharts)
+- [~] `FE-WEB` Weight sliders, recompute
+- [~] `FE-WEB` Recommendation with reasoning; per-line-item vendor selection with note
+- [~] `FE-WEB` Vendor registration checklist (tick items); shows registered or not
+- [~] `FE-WEB` Create WO(s) after selection (blocked until checklist complete), WO view / print, Submit for approval
+- [~] `FE-WEB` Management view (identity picker `management`): WO list, WO detail, Approve / Reject with note
+- [~] `FE-WEB` Vendor feedback capture after completion (real performance rows)
 
 ## Phase 7: Integration and demo (INT)
 

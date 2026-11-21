@@ -19,6 +19,7 @@ export const RfqItemSchema = z.object({
 });
 
 export const RfqVendorStatusSchema = z.enum([
+  "DRAFT",
   "RFQ_SENT",
   "RFQ_VIEWED",
   "VENDOR_RESPONDED",
@@ -29,6 +30,8 @@ export const RfqVendorStatusSchema = z.enum([
   "REVISION_REQUESTED",
   "AWARDED",
   "NOT_AWARDED",
+  "CLOSED",
+  "CANCELLED",
 ]);
 
 export const RfqVendorSchema = z.object({
@@ -140,6 +143,13 @@ export const EvalWeightsSchema = z.object({
 export const EvalRowSchema = z.object({
   vendor_id: id,
   vendor_name: z.string(),
+  quotation_id: id,
+  blocked: z.boolean(),
+  performance_is_dummy: z.boolean(),
+  quotation_status: z.string().optional(),
+  start_days: z.number().nullable().optional(),
+  notes: z.array(z.string()).optional(),
+  stamp: z.string().optional(),
   round: z.number().int(),
   rounds: z.array(z.object({ round: z.number().int(), landed_total: z.number() })),
   line_items: z.array(z.object({ rfq_item_id: id, rate_in_rfq_uom: z.number().nullable(), line_total: z.number().nullable() })),
@@ -167,7 +177,10 @@ export const EvaluationSchema = z.object({
   rows: z.array(EvalRowSchema),
   recommendation: z.object({
     overall_vendor_id: id.nullable(),
-    per_item: z.array(z.object({ rfq_item_id: id, vendor_id: id, reasoning: z.string() })),
+    per_item: z.array(z.object({ rfq_item_id: id, vendor_id: id.nullable(), reasoning: z.string() })),
+    reasoning: z.string(),
+    basis: z.string(),
+    source: z.enum(["llm", "fallback"]),
   }),
   item_selections: z.array(z.object({ rfq_item_id: id, vendor_id: id })).nullable(),
   hod_note: z.string().nullable(),
@@ -247,6 +260,10 @@ export const WoApprovalInputSchema = z.object({
   note: z.string().trim().min(3, "Add a short note for the record").max(1000),
 });
 
+export const WoCancelInputSchema = z.object({
+  reason: z.string().trim().min(3, "Say why the work order is being cancelled").max(1000),
+});
+
 export const RegistrationInputSchema = z.object({ checklist: z.array(RegistrationItemSchema) });
 
 export const MessageInputSchema = z.object({ text: z.string().trim().min(1).max(2000), rfq_item_id: id.optional() });
@@ -272,4 +289,5 @@ export type RevisionRequestInput = z.infer<typeof RevisionRequestInputSchema>;
 export type AlternativeDecisionInput = z.infer<typeof AlternativeDecisionInputSchema>;
 export type SelectionInput = z.infer<typeof SelectionInputSchema>;
 export type WoApprovalInput = z.infer<typeof WoApprovalInputSchema>;
+export type WoCancelInput = z.infer<typeof WoCancelInputSchema>;
 export type RegistrationInput = z.infer<typeof RegistrationInputSchema>;

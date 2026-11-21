@@ -11,7 +11,7 @@ import { ownEntry, useRfqs } from '@/lib/api/hooks-vendor';
 import type { Rfq, RfqVendorStatus } from '@/lib/api/schemas-vendor';
 import { useIdentity } from '@/lib/identity';
 import { useRefetchOnFocus } from '@/lib/use-poll';
-import { dueLabel, matchesFilter, RFQ_FILTERS, RFQ_STATUS, type RfqFilter } from '@/lib/vendor-status';
+import { canQuote, dueLabel, matchesFilter, RFQ_FILTERS, RFQ_STATUS, type RfqFilter } from '@/lib/vendor-status';
 import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
 
 type Row = { rfq: Rfq; status: RfqVendorStatus };
@@ -26,7 +26,7 @@ function RfqRow({ row, onPress }: { row: Row; onPress: () => void }) {
   const [first, ...rest] = row.rfq.items;
   const open = RFQ_STATUS[row.status].tone === 'decision';
   const due = dueLabel(row.rfq.due_date);
-  const closed = row.status === 'AWARDED' || row.status === 'NOT_AWARDED';
+  const closed = !canQuote(row.status);
   const more = rest.length > 0 ? ` +${rest.length} more` : '';
   const summary = first ? `${first.description}${more}` : 'No items';
 

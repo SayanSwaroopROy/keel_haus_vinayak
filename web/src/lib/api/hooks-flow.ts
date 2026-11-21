@@ -14,6 +14,7 @@ import type {
   RfqCreateInput,
   SelectionInput,
   WoApprovalInput,
+  WoCancelInput,
 } from "./schemas-flow";
 
 const CHAT_LIST_MS = 3_000;
@@ -206,6 +207,41 @@ export function useDecideWorkOrder() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: WoApprovalInput }) => api.decideWorkOrder(id, input),
     onSettled: invalidate,
+  });
+}
+
+export function useCompleteWorkOrder() {
+  const invalidate = useInvalidateWorkOrders();
+  return useMutation({ mutationFn: (id: string) => api.completeWorkOrder(id), onSettled: invalidate });
+}
+
+export function useCancelWorkOrder() {
+  const invalidate = useInvalidateWorkOrders();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: WoCancelInput }) => api.cancelWorkOrder(id, input),
+    onSettled: invalidate,
+  });
+}
+
+export function useCloseRfq(rfqId: string) {
+  const invalidateRfq = useInvalidateRfq(rfqId);
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.closeRfq(rfqId),
+    onSettled: () => Promise.all([invalidateRfq(), client.invalidateQueries({ queryKey: flowKeys.conversations() })]),
+  });
+}
+
+export function useCancelRequisition() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.cancelRequisition(id),
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: queryKeys.requisitions() }),
+        client.invalidateQueries({ queryKey: flowKeys.rfqs() }),
+        client.invalidateQueries({ queryKey: queryKeys.stats() }),
+      ]),
   });
 }
 

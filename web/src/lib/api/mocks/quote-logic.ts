@@ -186,6 +186,9 @@ export function computeEvaluation(args: {
     return {
       vendor_id: row.vendorId,
       vendor_name: row.vendorName,
+      quotation_id: row.latest.id,
+      blocked: vendors.find((vendor) => vendor.id === row.vendorId)?.status === "blocked",
+      performance_is_dummy: vendors.find((vendor) => vendor.id === row.vendorId)?.performance?.is_dummy ?? false,
       round: row.latest.round,
       rounds: row.rounds,
       line_items: row.priced.lines,
@@ -217,7 +220,7 @@ export function computeEvaluation(args: {
     const second = candidates.find((entry) => entry.row.vendor_id !== pick?.row.vendor_id);
     return {
       rfq_item_id: item.id,
-      vendor_id: pick?.row.vendor_id ?? vendorIds[0],
+      vendor_id: pick?.row.vendor_id ?? null,
       reasoning: pick
         ? `${pick.row.vendor_name}: ${inr(pick.line.line_total)} for this line${second ? `, next lowest ${inr(second.line.line_total)}` : ""}${quality ? `; quality ${quality.quality}/5${quality.is_dummy ? " (demo history)" : ""}` : ""}. Computed from the table, the decision is yours.`
         : "No complete quote for this line.",
@@ -229,7 +232,15 @@ export function computeEvaluation(args: {
     rfq_id: rfq.id,
     weights,
     rows: rows.sort((a, b) => a.rank - b.rank),
-    recommendation: { overall_vendor_id: order[0]?.row.vendorId ?? null, per_item: perItem },
+    recommendation: {
+      overall_vendor_id: order[0]?.row.vendorId ?? null,
+      per_item: perItem,
+      reasoning: order[0]
+        ? `${order[0].row.vendorName} scores highest overall (${order[0].finalScore}) on the weights shown.`
+        : "No quotations to compare yet.",
+      basis: "Mock: weighted score of price, performance, compliance, delivery and terms.",
+      source: "fallback",
+    },
     item_selections: args.selections,
     hod_note: args.note,
   };

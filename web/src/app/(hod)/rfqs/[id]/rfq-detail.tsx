@@ -1,6 +1,6 @@
 "use client";
 
-import { SendIcon } from "lucide-react";
+import { SendIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { describeError } from "@/lib/api/errors";
-import { useAlternatives, useQuotations, useRequestRevision, useRfq, useSendRfq } from "@/lib/api/hooks-flow";
+import { useAlternatives, useCloseRfq, useQuotations, useRequestRevision, useRfq, useSendRfq } from "@/lib/api/hooks-flow";
 import type { Quotation, Rfq } from "@/lib/api/schemas-flow";
 import { formatDay, reqNumber } from "@/lib/format";
 import { AlternativesPanel } from "./alternatives-panel";
@@ -37,6 +37,8 @@ function Detail({ rfq }: { rfq: Rfq }) {
   const revise = useRequestRevision(rfq.id);
   const [tab, setTab] = useState<TabKey>(rfq.status === "DRAFT" ? "vendors" : "comparison");
   const [sendOpen, setSendOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const closeRfq = useCloseRfq(rfq.id);
   const [target, setTarget] = useState<Target>(null);
   const [revisionFor, setRevisionFor] = useState<{ vendorId: string; vendorName: string } | null>(null);
 
@@ -69,6 +71,12 @@ function Detail({ rfq }: { rfq: Rfq }) {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <h1 className="text-2xl font-medium">{rfq.category}</h1>
               <RfqStatusBadge status={rfq.status} />
+              {rfq.status === "SENT" ? (
+                <Button size="sm" variant="ghost" className="text-binding hover:bg-accent hover:text-binding" onClick={() => setCloseOpen(true)}>
+                  <XIcon data-icon="inline-start" />
+                  Close RFQ
+                </Button>
+              ) : null}
             </div>
             <p className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground">
               <Link href={`/requisitions/${rfq.requisition_id}`} className="tabular-nums underline underline-offset-4 hover:text-foreground">
@@ -155,6 +163,24 @@ function Detail({ rfq }: { rfq: Rfq }) {
               setSendOpen(false);
               setTab("vendors");
               toast.add({ title: "RFQ sent", description: "Vendors are notified in the app.", type: "success" });
+            },
+          })
+        }
+      />
+
+      <ConfirmDialog
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        title="Close this RFQ"
+        description="Vendors who have not been selected can no longer quote or chat on it. This cannot be reopened."
+        confirmLabel="Close RFQ"
+        pending={closeRfq.isPending}
+        error={closeRfq.error}
+        onConfirm={() =>
+          closeRfq.mutate(undefined, {
+            onSuccess: () => {
+              setCloseOpen(false);
+              toast.add({ title: "RFQ closed", type: "success" });
             },
           })
         }

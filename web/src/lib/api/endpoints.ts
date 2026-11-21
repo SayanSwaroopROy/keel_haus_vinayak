@@ -41,6 +41,7 @@ import {
   type RfqCreateInput,
   type SelectionInput,
   type WoApprovalInput,
+  type WoCancelInput,
 } from "./schemas-flow";
 
 const NoContent = z.undefined();
@@ -145,6 +146,14 @@ export const api = {
   sendRfq: (id: string) =>
     isMocked("rfqs") ? flowApi.sendRfq(id) : apiFetch(`/rfqs/${enc(id)}/send`, { method: "POST", schema: RfqSchema }),
 
+  closeRfq: (id: string) =>
+    isMocked("rfqs") ? flowApi.closeRfq(id) : apiFetch(`/rfqs/${enc(id)}/close`, { method: "POST", schema: RfqSchema }),
+
+  cancelRequisition: (id: string) =>
+    isMocked("rfqs")
+      ? flowApi.cancelRequisition(id)
+      : apiFetch(`/requisitions/${enc(id)}/cancel`, { method: "POST", schema: RequisitionSchema }),
+
   requestRevision: (rfqId: string, input: RevisionRequestInput) =>
     isMocked("quotations")
       ? flowApi.requestRevision(rfqId, input)
@@ -221,6 +230,16 @@ export const api = {
     isMocked("workOrders")
       ? flowApi.decideWorkOrder(id, input)
       : apiFetch(`/work-orders/${enc(id)}/approval`, { method: "POST", body: input, schema: WorkOrderSchema }),
+
+  completeWorkOrder: (id: string) =>
+    isMocked("workOrders")
+      ? flowApi.completeWorkOrder(id)
+      : apiFetch(`/work-orders/${enc(id)}/complete`, { method: "POST", schema: WorkOrderSchema }),
+
+  cancelWorkOrder: (id: string, input: WoCancelInput) =>
+    isMocked("workOrders")
+      ? flowApi.cancelWorkOrder(id, input)
+      : apiFetch(`/work-orders/${enc(id)}/cancel`, { method: "POST", body: input, schema: WorkOrderSchema }),
 
   file: (id: string): Promise<Blob | null> => (isMocked("files.get") ? Promise.resolve(null) : apiFetchBlob(`/files/${enc(id)}`)),
 };

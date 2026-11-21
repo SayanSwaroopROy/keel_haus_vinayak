@@ -216,3 +216,61 @@ describe("RFQ creation and sending", () => {
     expect(Math.max(...after.map((row) => row.round))).toBe(before + 1);
   });
 });
+
+describe("closing and cancelling follows the contract", () => {
+  beforeEach(() => {
+    resetMockStore();
+    useSession.setState({ user: hod });
+  });
+  const pendingId = mockId(66, 1);
+
+  it("closing an RFQ closes unselected vendor rows and conversations, once", async () => {
+    const closed = await flowApi.closeRfq(ROAD_RFQ);
+    expect(closed.status).toBe("CLOSED");
+    expect(closed.vendors.every((row) => row.status === "CLOSED")).toBe(true);
+    expect(getStore().conversations.filter((row) => row.rfq_id === ROAD_RFQ).every((row) => row.status === "closed")).toBe(true);
+    expect(RfqSchema.safeParse(closed).success).toBe(true);
+    await expect(flowApi.closeRfq(ROAD_RFQ)).rejects.toMatchObject({ code: "invalid_transition" });
+  });
+
+  it("the HOD cancels a Work Order before it is sent, with a reason", async () => {
+    await expect(flowApi.cancelWorkOrder(pendingId, { reason: " " })).rejects.toMatchObject({ code: "validation_error" });
+    const order = await flowApi.cancelWorkOrder(pendingId, { reason: "Vendor withdrew" });
+    expect(order.status).toBe("CANCELLED");
+    await expect(flowApi.cancelWorkOrder(pendingId, { reason: "again" })).rejects.toMatchObject({ code: "invalid_transition" });
+  });
+
+  it("once sent, only management can cancel", async () => {
+    useSession.setState({ user: management });
+    await flowApi.decideWorkOrder(pendingId, { action: "approve", note: "within budget" });
+    await expect(flowApi.cancelWorkOrder(pendingId, { reason: "management only" })).resolves.toMatchObject({ status: "CANCELLED" });
+    useSession.setState({ user: hod });
+    resetMockStore();
+    useSession.setState({ user: management });
+    await expect(flowApi.cancelWorkOrder(pendingId, { reason: "not sent yet" })).rejects.toMatchObject({ code: "forbidden" });
+    await flowApi.decideWorkOrder(pendingId, { action: "approve", note: "ok" });
+    useSession.setState({ user: hod });
+    await expect(flowApi.cancelWorkOrder(pendingId, { reason: "hod after send" })).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("only an acknowledged Work Order can be completed", async () => {
+    await expect(flowApi.completeWorkOrder(pendingId)).rejects.toMatchObject({ code: "invalid_transition" });
+    const order = getStore().workOrders.find((row) => row.id === pendingId);
+    if (!order) throw new Error("seed work order missing");
+    order.status = "ACKNOWLEDGED";
+    await expect(flowApi.completeWorkOrder(pendingId)).resolves.toMatchObject({ status: "COMPLETED" });
+  });
+
+  it("cancelling a requisition closes its open RFQs, but not once a Work Order exists", async () => {
+    const rfq = getStore().rfqs.find((row) => row.id === ROAD_RFQ);
+    if (!rfq) throw new Error("seed rfq missing");
+    const cancelled = await flowApi.cancelRequisition(rfq.requisition_id);
+    expect(cancelled.status).toBe("CANCELLED");
+    expect(getStore().rfqs.find((row) => row.id === ROAD_RFQ)?.status).toBe("CLOSED");
+    const withWo = getStore().workOrders.find((row) => row.id === pendingId);
+    if (!withWo) throw new Error("seed work order missing");
+    const requisition = getStore().requisitions.find((row) => row.id === withWo.requisition_id);
+    if (requisition) requisition.status = "WO_GENERATED";
+    await expect(flowApi.cancelRequisition(withWo.requisition_id)).rejects.toMatchObject({ code: "invalid_transition" });
+  });
+});
