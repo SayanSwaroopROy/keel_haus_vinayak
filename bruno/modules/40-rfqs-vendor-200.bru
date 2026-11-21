@@ -1,0 +1,20 @@
+meta {
+  name: rfqs vendor ok
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/rfqs
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_vendor_a}}
+}
+
+assert {
+  res.status: eq 200
+}

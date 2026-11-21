@@ -1,0 +1,20 @@
+meta {
+  name: dashboard stats ok
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/dashboard/stats
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 200
+}

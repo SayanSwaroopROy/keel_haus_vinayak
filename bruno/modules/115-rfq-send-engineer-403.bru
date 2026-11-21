@@ -1,0 +1,20 @@
+meta {
+  name: rfq send engineer 403
+  type: http
+  seq: 115
+}
+
+post {
+  url: {{baseUrl}}/rfqs/00000000-0000-0000-0000-000000000000/send
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

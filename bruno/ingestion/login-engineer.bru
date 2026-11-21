@@ -1,0 +1,21 @@
+meta {
+  name: users engineer
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/users?role=site_engineer
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body[0].role: eq site_engineer
+}
+
+script:post-response {
+  bru.setVar("id_eng", res.body[0].id);
+  bru.setVar("project_id", res.body[0].project_ids[0]);
+}

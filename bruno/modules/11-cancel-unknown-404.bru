@@ -1,0 +1,20 @@
+meta {
+  name: cancel unknown requisition 404
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/requisitions/00000000-0000-0000-0000-000000000000/cancel
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 404
+}

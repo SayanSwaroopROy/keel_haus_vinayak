@@ -1,0 +1,20 @@
+meta {
+  name: work orders vendor ok
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/work-orders
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_vendor_a}}
+}
+
+assert {
+  res.status: eq 200
+}

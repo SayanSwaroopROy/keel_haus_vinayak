@@ -1,0 +1,24 @@
+meta {
+  name: confirm hod 403
+  type: http
+  seq: 106
+}
+
+post {
+  url: {{baseUrl}}/requisitions/00000000-0000-0000-0000-000000000000/confirm
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

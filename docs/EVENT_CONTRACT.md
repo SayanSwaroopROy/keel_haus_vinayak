@@ -23,8 +23,10 @@ All notifications are in-app only, between the mobile app and the HOD web. No em
 | `message` | other party | new chat message |
 | `alternative_proposed` | hod | vendor proposes |
 | `alternative_decided` | vendor | HOD decides |
+| `message` (spec update) | every other vendor on the RFQ | HOD accepts an alternative: the shared RFQ item gets a new spec version |
+| `alternative_proposed` (reply) | hod | vendor replies to an info request |
 | `quotation_submitted` | hod | vendor submits the quote form (or the HOD enters it) |
 | `revision_requested` | vendor | HOD asks for a revised quote |
 | `wo_approval_requested` | management | HOD submits a WO |
-| `wo_decided` | hod | management approves or rejects |
+| `wo_decided` | hod; vendor | to the HOD: management approves or rejects, the vendor acknowledges, a WO is cancelled. To the vendor: WO completed, or cancelled after it was `SENT` |
 | `work_order_issued` | vendor, engineer | management approves, WO is `SENT` |

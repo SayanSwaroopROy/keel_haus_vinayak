@@ -1,0 +1,27 @@
+meta {
+  name: personas (run first)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/users
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:pre-request {
+  // no login: GET /users, keep each persona's id; requests send X-User-Id
+  const axios = require("axios");
+  const users = (await axios.get(bru.getEnvVar("baseUrl") + "/users")).data;
+  const v = users.filter(u => u.role === "vendor");
+  bru.setVar("id_hod", users.find(u => u.role === "hod").id);
+  bru.setVar("id_mgmt", users.find(u => u.role === "management").id);
+  bru.setVar("id_eng", users.find(u => u.role === "site_engineer").id);
+  bru.setVar("id_vendor_a", v[0].id);
+  bru.setVar("id_vendor_b", v[1].id);
+}

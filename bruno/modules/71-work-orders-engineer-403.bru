@@ -1,0 +1,20 @@
+meta {
+  name: work orders engineer 403
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/work-orders
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 403
+}

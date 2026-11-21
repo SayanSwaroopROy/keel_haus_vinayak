@@ -1,0 +1,23 @@
+meta {
+  name: vendor registration unknown 404
+  type: http
+  seq: 124
+}
+
+patch {
+  url: {{baseUrl}}/vendors/00000000-0000-0000-0000-000000000000/registration
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+body:json {
+  { "checklist": [] }
+}
+
+assert {
+  res.status: eq 404
+}

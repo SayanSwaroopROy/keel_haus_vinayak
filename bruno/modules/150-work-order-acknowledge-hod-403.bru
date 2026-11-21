@@ -1,0 +1,20 @@
+meta {
+  name: work order acknowledge hod 403
+  type: http
+  seq: 150
+}
+
+post {
+  url: {{baseUrl}}/work-orders/00000000-0000-0000-0000-000000000000/acknowledge
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

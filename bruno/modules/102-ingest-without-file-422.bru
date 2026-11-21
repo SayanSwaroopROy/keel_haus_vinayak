@@ -1,0 +1,20 @@
+meta {
+  name: ingest without file 422
+  type: http
+  seq: 102
+}
+
+post {
+  url: {{baseUrl}}/ingest
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.code: eq validation_error
+}

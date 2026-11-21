@@ -4,12 +4,12 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import current_user, hash_password, make_token, verify_password
+from app.auth import current_user
 from app.db import get_db
 from app.errors import ApiError, not_found
 from app.models import Notification, Project, User
@@ -18,8 +18,7 @@ router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
 Me = Annotated[User, Depends(current_user)]
 
-# Compared against when the username is unknown, so login time doesn't reveal valid usernames.
-_DUMMY_HASH = hash_password("not-a-real-password")
+ROLES = {"site_engineer", "hod", "vendor", "management"}
 
 
 class UserOut(BaseModel):
@@ -32,16 +31,6 @@ class UserOut(BaseModel):
     @classmethod
     def of(cls, u: User) -> UserOut:
         return cls(id=u.id, name=u.name, role=u.role, vendor_id=u.vendor_id, project_ids=u.project_ids or [])
-
-
-class LoginIn(BaseModel):
-    username: str = Field(min_length=1, max_length=100)
-    password: str = Field(min_length=1, max_length=200)
-
-
-class LoginOut(BaseModel):
-    token: str
-    user: UserOut
 
 
 class ProjectOut(BaseModel):
@@ -60,13 +49,14 @@ class NotificationOut(BaseModel):
     read_at: datetime | None
 
 
-@router.post("/auth/login", response_model=LoginOut)
-def login(body: LoginIn, db: DB) -> LoginOut:
-    user = db.scalar(select(User).where(User.username == body.username))
-    ok = verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
-    if not user or not ok:
-        raise ApiError(401, "unauthorized", "Invalid username or password")
-    return LoginOut(token=make_token(user), user=UserOut.of(user))
+@router.get("/users", response_model=list[UserOut])
+def users(db: DB, role: str | None = None) -> list[UserOut]:
+    q = select(User).order_by(User.role, User.name)
+    if role:
+        if role not in ROLES:
+            raise ApiError(422, "validation_error", f"role must be one of {', '.join(sorted(ROLES))}")
+        q = q.where(User.role == role)
+    return [UserOut.of(u) for u in db.scalars(q)]
 
 
 @router.get("/me", response_model=UserOut)
@@ -77,14 +67,15 @@ def me(user: Me) -> UserOut:
 @router.get("/projects", response_model=list[ProjectOut])
 def projects(user: Me, db: DB) -> list[Project]:
     q = select(Project).order_by(Project.code)
-    if user.role != "hod":  # engineers/vendors see only their projects
+    if user.role not in ("hod", "management"):  # engineers/vendors see only their projects
         q = q.where(Project.id.in_(user.project_ids or []))
     return list(db.scalars(q))
 
 
 @router.get("/notifications", response_model=list[NotificationOut])
-def notifications(user: Me, db: DB, unread: int = 0) -> list[Notification]:
-    q = select(Notification).where(Notification.user_id == user.id).order_by(Notification.created_at.desc()).limit(100)
+def notifications(user: Me, db: DB, unread: Annotated[bool, Query()] = False,
+                  limit: Annotated[int, Query(ge=1, le=200)] = 100) -> list[Notification]:
+    q = select(Notification).where(Notification.user_id == user.id).order_by(Notification.created_at.desc()).limit(limit)
     if unread:
         q = q.where(Notification.read_at.is_(None))
     return list(db.scalars(q))

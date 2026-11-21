@@ -1,0 +1,20 @@
+meta {
+  name: vendors engineer 403
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/vendors
+  body: none
+  auth: none
+}
+
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 403
+}

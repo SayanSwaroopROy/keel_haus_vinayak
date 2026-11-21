@@ -1,0 +1,24 @@
+meta {
+  name: evaluation compute engineer 403
+  type: http
+  seq: 135
+}
+
+post {
+  url: {{baseUrl}}/rfqs/00000000-0000-0000-0000-000000000000/evaluation
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

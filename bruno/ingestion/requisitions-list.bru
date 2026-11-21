@@ -1,0 +1,20 @@
+meta {
+  name: list my requisitions
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/requisitions
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
