@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { z } from 'zod';
 
 import { apiFetch } from './client';
@@ -43,9 +44,10 @@ import {
 
 export type UploadFile = { uri: string; name: string; mimeType: string };
 
-// React Native's FormData accepts {uri, name, type} for files; the DOM typings do not know it.
+// Expo's fetch rejects React Native's {uri, name, type} parts. It accepts any part with name, type and bytes().
 function appendFile(form: FormData, field: string, file: UploadFile): void {
-  const part = { uri: file.uri, name: file.name, type: file.mimeType };
+  const source = new File(file.uri);
+  const part = { name: file.name, type: file.mimeType, bytes: () => source.bytes() };
   form.append(field, part as unknown as Blob);
 }
 

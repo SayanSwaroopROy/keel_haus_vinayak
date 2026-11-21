@@ -58,6 +58,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions<T>): Pro
       formData ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS,
     );
   } catch (error) {
+    if (__DEV__) console.warn(`[api] ${method} ${path} failed before a response:`, error);
     throw fromThrown(error);
   }
 
