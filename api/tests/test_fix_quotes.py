@@ -94,9 +94,12 @@ async def test_quote_rules_and_freeze(client, setup, fakes):  # noqa: F811
     e1 = await client.post(f"/rfqs/{w['rfq']}/evaluation", json={}, headers=hod)
     e2 = await client.post(f"/rfqs/{w['rfq']}/evaluation", json={}, headers=hod)  # recompute before selection is fine
     assert e1.status_code == e2.status_code == 201 and e2.json()["item_selections"] is None
-    ev = e2.json()
     p = await client.patch(f"/quotations/{q['id']}", json={"freight": 10}, headers=hod)
     assert p.status_code == 200
+    sel = {"selections": [{"rfq_item_id": str(w["item"]), "vendor_id": str(v1)}], "note": "n"}
+    # in-place patch changes the stamp: the old evaluation is stale, select needs a recompute
+    assert (await client.post(f"/evaluations/{e2.json()['id']}/select", json=sel, headers=hod)).status_code == 409
+    ev = (await client.post(f"/rfqs/{w['rfq']}/evaluation", json={}, headers=hod)).json()
     sel = {"selections": [{"rfq_item_id": str(w["item"]), "vendor_id": str(w["ids"]["vendor2"])}], "note": "n"}
     assert (await client.post(f"/evaluations/{ev['id']}/select", json=sel, headers=hod)).status_code == 422  # no row
     sel["selections"][0]["vendor_id"] = str(v1)

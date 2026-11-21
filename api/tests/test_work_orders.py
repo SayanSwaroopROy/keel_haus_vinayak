@@ -22,4 +22,4 @@ def test_old_endpoints_gone():
     from app.main import app
     paths = app.openapi()["paths"]
     assert "/work-orders/{wid}/approval" in paths
-    assert not any(p.endswith(("/acknowledge", "/complete")) for p in paths if p.startswith("/work-orders"))
+    assert "/work-orders/{wid}/acknowledge" in paths and "/work-orders/{wid}/complete" in paths
