@@ -103,9 +103,9 @@ def seed_vendors(db: Session, projects: list[Project], inbox: str | None) -> lis
                 db.add(VendorPerformance(vendor_id=row.id, project_id=projects[0].id, quality=q, delivery=d,
                                          disputes=x, note="demo data, not real history", is_dummy=True))
     # Contractor list from the client pack: names only; categories are guessed and flagged "inferred".
-    xlsx = PACK / "05_vendors" / "Contractor_list_Aquina.xlsx"
+    xlsx = next((PACK / "05_vendors").glob("*.xlsx"), None)  # names only; by folder, not by file name
     n = 0
-    if xlsx.exists():
+    if xlsx:
         import openpyxl
 
         ws = openpyxl.load_workbook(xlsx, read_only=True, data_only=True).active
@@ -118,8 +118,8 @@ def seed_vendors(db: Session, projects: list[Project], inbox: str | None) -> lis
 
 
 def seed_item_codes(db: Session) -> None:
-    xlsx = PACK / "04_item_codes" / "ERP_item_codes_waterproofing.xlsx"
-    if not xlsx.exists():
+    xlsx = next((PACK / "04_item_codes").glob("*.xlsx"), None)
+    if not xlsx:
         print("item_codes: SKIPPED (client pack not found)")
         return
     import openpyxl

@@ -158,11 +158,11 @@ async def test_text_language_is_stored(client, world, fakes, lang):
 # ---------- tables: exact mapping, no AI (AC-5) ----------
 async def test_csv_with_odd_headers_needs_no_ai(client, world, fakes):
     eng = await login(client, world["eng"], world["pw"])
-    csv_data = b"Item Alias,Desc,UOM,Qty\nWP.01,Waterproofing at toilet floor,SQFT,13429.53\nWP.03,Toilet depression,RMT,Not measured\n"
+    csv_data = b"Item Alias,Desc,UOM,Qty\nAB.01,Waterproofing at toilet floor,SQFT,13500.25\nAB.03,Toilet depression,RMT,Not measured\n"
     req = await req_of(client, eng, await ingest_ok(client, eng, world, "boq.csv", csv_data))
     assert fakes[0].calls == []
     a, b = req["items"]
-    assert (a["wo_code"], a["uom"], a["quantity"], a["uncertain_fields"]) == ("WP.01", "SQFT", 13429.53, [])
+    assert (a["wo_code"], a["uom"], a["quantity"], a["uncertain_fields"]) == ("AB.01", "SQFT", 13500.25, [])
     assert b["quantity"] is None and "quantity" in b["uncertain_fields"] and "Not measured" in b["remarks"]
 
 
@@ -177,11 +177,11 @@ async def test_csv_standard_headers(client, world, fakes):
 async def test_xlsx_finds_header_row_skips_totals_and_other_sheets(client, world, fakes):
     eng = await login(client, world["eng"], world["pw"])
     sheets = {"BOQ": [["PROJECT X"], [], ["SL NO", "WO CODE", "DESCRIPTION (AS PER WORK ORDER)", "UOM", "TOTAL (SQM)"],
-                      [1, "WP.01", "Toilet floor", "SQM", 1247.63], ["A", None, None, None, None],
-                      [2, "WP.04", "Kitchen floor", "SQM", 167.45], ["GRAND TOTAL", None, None, None, 1415]],
+                      [1, "AB.01", "Toilet floor", "SQM", 1250.5], ["A", None, None, None, None],
+                      [2, "AB.04", "Kitchen floor", "SQM", 170.5], ["GRAND TOTAL", None, None, None, 1415]],
               "Measurements": [["DESCRIPTION", "QUANTITY"], ["Master toilet", 4.41]]}
     req = await req_of(client, eng, await ingest_ok(client, eng, world, "q.xlsx", h.xlsx_bytes(sheets)))
-    assert [(i["wo_code"], i["quantity"], i["uom"]) for i in req["items"]] == [("WP.01", 1247.63, "SQM"), ("WP.04", 167.45, "SQM")]
+    assert [(i["wo_code"], i["quantity"], i["uom"]) for i in req["items"]] == [("AB.01", 1250.5, "SQM"), ("AB.04", 170.5, "SQM")]
     assert fakes[0].calls == []
     with SessionLocal() as db:
         from app.models import RequisitionRevision

@@ -155,16 +155,14 @@ def main() -> int:
         check("voice job", False, job["error"] or "")
 
     print("7. Client documents (informational: counts only)")
-    docs = {"tender BOQ PDF (digital)": PACK / "03_tender" / "BOQ_Specification_Waterproofing_Amara_Tower-2_rates_blank.pdf",
-            "site quantities XLSX": PACK / "02_site_requirements" / "A_Amara_Waterproofing_quantities_Tower-2.xlsx",
-            "road BOQ XLSX": PACK / "02_site_requirements" / "B_BOQ_Internal_Road_Work_Aquina.xlsx",
-            "quote PDF, handwritten scan": PACK / "06_quotations" / "Quotation_SK_Construction.pdf",
-            "quote PDF, digital": PACK / "06_quotations" / "Quotation_Purvyakruti.pdf"}
+    docs = {}  # by folder and position, never by client file name
+    for folder, label in (("03_tender", "tender PDF"), ("02_site_requirements", "site requirement"), ("06_quotations", "quote PDF")):
+        for n, path in enumerate(sorted(p for p in (PACK / folder).glob("*") if p.suffix.lower() in (".pdf", ".xlsx")), 1):
+            docs[f"{label} #{n} ({path.suffix[1:]})"] = path
+    if not docs:
+        print("  SKIP  client pack not on this machine")
     first_req = None
     for label, path in docs.items():
-        if not path.exists():
-            print(f"  SKIP  {label} (client pack not on this machine)")
-            continue
         job = finish(c, h, upload(path.name, path.read_bytes()).json()["id"], timeout=240)
         req = requisition(c, h, job)
         if req:

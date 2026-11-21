@@ -27,7 +27,7 @@ def ensure_embeddings(db: Session) -> int:
 
 
 def suggest_code(db: Session, best_code: str | None) -> str:
-    """Next free code in the best match's family, e.g. WP.08 -> WP.09. Suggestion only; the HOD decides."""
+    """Next free code in the best match's family, e.g. AB.08 -> AB.09. Suggestion only; the HOD decides."""
     if not best_code:
         return "NEW.01"
     prefix = best_code.rsplit(".", 1)[0] if "." in best_code else best_code
