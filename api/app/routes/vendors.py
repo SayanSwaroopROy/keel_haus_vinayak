@@ -98,11 +98,25 @@ def performance_of(db: Session, vendor_id: uuid.UUID) -> Perf | None:
     return None
 
 
-def out(db: Session, v: Vendor) -> VendorOut:
+def performance_map(db: Session, vendor_ids: list[uuid.UUID]) -> dict[uuid.UUID, Perf]:
+    """performance_of for many vendors in two queries: real rows win over dummy rows per vendor."""
+    result: dict[uuid.UUID, Perf] = {}
+    for dummy in (False, True):
+        rows = db.execute(select(VendorPerformance.vendor_id, func.avg(VendorPerformance.quality),
+                                 func.avg(VendorPerformance.delivery), func.avg(VendorPerformance.disputes), func.count())
+                          .where(VendorPerformance.vendor_id.in_(vendor_ids), VendorPerformance.is_dummy.is_(dummy))
+                          .group_by(VendorPerformance.vendor_id)).all()
+        for vendor_id, quality, delivery, disputes, count in rows:
+            result.setdefault(vendor_id, Perf(quality=round(float(quality), 2), delivery=round(float(delivery), 2),
+                                              disputes=round(float(disputes), 2), n=count, is_dummy=dummy))
+    return result
+
+
+def out(db: Session, v: Vendor, perf: Perf | None | Literal[False] = False) -> VendorOut:
     return VendorOut(id=v.id, name=v.name, categories=v.categories or [], category_source=v.category_source,
                      brands=v.brands or [], status=v.status,
-                     registered=v.registered, registration_checklist=v.registration_checklist or [],
-                     performance=performance_of(db, v.id))
+                     registered=is_registered(v.registration_checklist or []), registration_checklist=v.registration_checklist or [],
+                     performance=performance_of(db, v.id) if perf is False else perf)
 
 
 def default_vendors(db: Session, category: str) -> list[Vendor]:
@@ -144,7 +158,8 @@ def list_vendors(_: Hod, db: DB, category: str | None = None, exclude_blocked: b
     if category and category.strip():
         want = category.strip().lower()
         vs = [v for v in vs if want in {c.lower() for c in v.categories or []}]
-    return [out(db, v) for v in vs]
+    perfs = performance_map(db, [v.id for v in vs]) if vs else {}
+    return [out(db, v, perfs.get(v.id)) for v in vs]
 
 
 @router.post("/vendors", status_code=201, response_model=VendorOut)
