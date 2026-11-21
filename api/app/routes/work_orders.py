@@ -34,6 +34,7 @@ from app.models import (
 )
 from app.routes.rfqs import close_conversations, to_procure
 from app.transitions import audit, notify, notify_hods, notify_management, notify_vendor, transition
+from app.vendor_checklist import is_registered
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
@@ -88,7 +89,7 @@ def _vendor_ok(db: Session, vendor_id: uuid.UUID) -> None:
         raise not_found("Vendor not found")
     if v.status == "blocked":
         raise ApiError(409, "vendor_blocked", f"Vendor {v.name} is blocked", [{"vendor": v.name}])
-    if not v.registered:
+    if not is_registered(v.registration_checklist or []):
         raise ApiError(409, "vendor_not_registered", f"Vendor registration checklist is incomplete: {v.name}",
                        [{"vendor": v.name}])
 
@@ -141,7 +142,7 @@ def generate(eid: uuid.UUID, user: Hod, db: DB):
     blocked = [v.name for v in vendors.values() if v.status == "blocked"]
     if blocked:
         raise ApiError(409, "vendor_blocked", "Vendor is blocked: " + ", ".join(blocked), [{"vendor": n} for n in blocked])
-    unreg = [v.name for v in vendors.values() if not v.registered]
+    unreg = [v.name for v in vendors.values() if not is_registered(v.registration_checklist or [])]
     if unreg:  # before anything is created
         raise ApiError(409, "vendor_not_registered", "Vendor registration checklist is incomplete: " + ", ".join(unreg),
                        [{"vendor": n} for n in unreg])
