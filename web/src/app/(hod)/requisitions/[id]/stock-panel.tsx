@@ -77,10 +77,10 @@ export function StockPanel({ requisition }: { requisition: Requisition }) {
                       <TableCell
                         className={cn(
                           "text-right font-medium tabular-nums",
-                          line.row.to_procure > 0 ? "text-binding" : "text-settled",
+                          (line.row.to_procure ?? 0) > 0 ? "text-binding" : "text-settled",
                         )}
                       >
-                        {line.row.to_procure > 0 ? formatQty(line.row.to_procure) : "Covered"}
+                        {line.row.to_procure != null && line.row.to_procure > 0 ? formatQty(line.row.to_procure) : "Covered"}
                       </TableCell>
                     </>
                   ) : (

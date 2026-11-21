@@ -152,7 +152,7 @@ export const EvalRowSchema = z.object({
   stamp: z.string().optional(),
   round: z.number().int(),
   rounds: z.array(z.object({ round: z.number().int(), landed_total: z.number() })),
-  line_items: z.array(z.object({ rfq_item_id: id, rate_in_rfq_uom: z.number().nullable(), line_total: z.number().nullable() })),
+  line_items: z.array(z.object({ rfq_item_id: id, rate_in_rfq_uom: z.coerce.number().nullable().catch(null), line_total: z.number().nullable() })),
   subtotal_at_rfq_qty: z.number(),
   gst: z.number(),
   freight: z.number(),

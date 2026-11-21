@@ -10,7 +10,7 @@ export function requisitionBlockers(requisition: Requisition, stock?: StockRow[]
   const unsure = requisition.items.filter(itemIsUnsure).length;
   const duplicates = requisition.items.filter((row) => row.duplicate_of.length > 0).length;
   const missingCode = requisition.items.filter((row) => row.item_code === null).length;
-  const short = stock?.filter((row) => row.to_procure > 0).length ?? 0;
+  const short = stock?.filter((row) => (row.to_procure ?? 0) > 0).length ?? 0;
   const blockers: Blocker[] = [];
   if (unsure > 0) blockers.push({ kind: "unsure", count: unsure, label: `${unsure} unsure` });
   if (duplicates > 0) blockers.push({ kind: "duplicate", count: duplicates, label: `${duplicates} duplicate code${duplicates > 1 ? "s" : ""}` });
