@@ -180,10 +180,6 @@
   --ease-cover: cubic-bezier(0.72, 0, 0.18, 1);
 }
 
-html[data-opened] .opening-splash {
-  display: none;
-}
-
 .khata-rules {
   background-image: repeating-linear-gradient(
     to bottom,
@@ -395,6 +391,53 @@ html[data-opened] .opening-splash {
 @media (min-width: 64rem) {
   .role-handover[data-phase="opening"] {
     animation-name: khata-fold-rail;
+  }
+}
+
+/* Route transition: same cover, shorter. A link click closes it first; other navigations show it at once. */
+.route-cover[data-mode="link"][data-phase="closing"] {
+  animation: khata-cover-close 300ms var(--ease-cover) both;
+}
+
+.route-cover[data-phase="opening"] {
+  pointer-events: none;
+  animation: khata-cover-open 520ms var(--ease-cover) both;
+}
+
+.route-cover[data-phase="opening"] .route-content {
+  animation: khata-content-out 260ms var(--ease-cover) both;
+}
+
+.route-thread {
+  transform-origin: top;
+  animation: khata-drop 380ms var(--ease-out-expo) 60ms both;
+}
+
+.route-knot {
+  animation: khata-knot 300ms var(--ease-out-expo) 240ms both;
+}
+
+.route-text {
+  animation: khata-fade 320ms var(--ease-out-expo) 200ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-thread,
+  .route-knot,
+  .route-text {
+    animation: none;
+  }
+
+  .route-cover[data-mode="link"][data-phase="closing"] {
+    animation: khata-fade 120ms linear both;
+  }
+
+  .route-cover[data-phase="opening"] {
+    animation: khata-fade-out 180ms linear both;
+  }
+
+  .route-cover[data-phase="opening"] .route-content {
+    animation: none;
   }
 }
 

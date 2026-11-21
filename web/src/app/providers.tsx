@@ -1,9 +1,10 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { isApiError } from "@/lib/api/errors";
 import { RoleHandover } from "@/components/motion/role-handover";
+import { RouteTransition } from "@/components/motion/route-transition";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -29,6 +30,9 @@ export function Providers({ children }: { children: ReactNode }) {
       <TooltipProvider>
         <Toaster>{children}</Toaster>
         <RoleHandover />
+        <Suspense fallback={null}>
+          <RouteTransition />
+        </Suspense>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/motion/handover";
 
-const OPENED_KEY = "vinayak.opened";
 const WORDMARK = "VINAYAK".split("");
 const HOLD_MS = 280;
 const INTRO_REDUCED_MS = 600;
@@ -12,30 +11,17 @@ const EXIT_REDUCED_MS = 220;
 
 type Phase = "intro" | "leaving" | "gone";
 
-// Inline in <head>, before first paint: a tab that already saw the splash skips it without a flash.
-export const OPENED_GATE_SCRIPT = `try{if(sessionStorage.getItem("${OPENED_KEY}"))document.documentElement.setAttribute("data-opened","")}catch(e){}`;
-
-function markOpened(): void {
-  document.documentElement.setAttribute("data-opened", "");
-  try {
-    window.sessionStorage.setItem(OPENED_KEY, "1");
-  } catch {
-    // Storage blocked: the splash plays again on the next hard load, which is harmless.
-  }
-}
-
 /**
- * "Opening the khata": once per tab, the crimson cover of the ledger. The thread drops, its knot is tied,
- * the wordmark is inked and the page rules are drawn, then the cover swings open to the left.
- * The intro is pure CSS from first paint; JS only decides when the cover opens (after hydration and the intro).
+ * "Opening the khata": on every full page load (first visit and reload), the crimson cover of the ledger.
+ * The thread drops, its knot is tied, the wordmark is inked and the page rules are drawn, then the cover
+ * swings open to the left. The intro is pure CSS from first paint; JS only decides when the cover opens
+ * (after hydration and the intro). Client-side page changes use RouteTransition instead.
  */
 export function OpeningSplash() {
   const [phase, setPhase] = useState<Phase>("intro");
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Already opened in this tab: the gate script's attribute hides the splash in CSS.
-    if (document.documentElement.hasAttribute("data-opened")) return;
     let cancelled = false;
     let timer: number | undefined;
     const leave = () => setPhase((current) => (current === "intro" ? "leaving" : current));
@@ -57,7 +43,6 @@ export function OpeningSplash() {
 
   useEffect(() => {
     if (phase !== "leaving") return;
-    markOpened();
     const timer = window.setTimeout(() => setPhase("gone"), prefersReducedMotion() ? EXIT_REDUCED_MS : EXIT_MS);
     return () => window.clearTimeout(timer);
   }, [phase]);
