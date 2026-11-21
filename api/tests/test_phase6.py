@@ -168,9 +168,9 @@ async def test_evaluation_select_and_work_order(client, setup, fakes):
         assert st[w["ids"]["vendor1"]] == "AWARDED" and st[w["ids"]["vendor2"]] == "NOT_AWARDED"
         assert db.get(Requisition, w["rid"]).status == "WO_GENERATED"
     # vendors see nothing before management approval
-    assert (await client.get(f"/work-orders/{wo['id']}", headers=v1)).status_code == 403
+    assert (await client.get(f"/work-orders/{wo['id']}", headers=v1)).status_code == 404
     assert (await client.get("/work-orders", headers=v1)).json() == []
-    assert (await client.get(f"/work-orders/{wo['id']}", headers=eng)).status_code == 403
+    assert (await client.get(f"/work-orders/{wo['id']}", headers=eng)).status_code == 404
     # HOD submits; HOD cannot approve; management approves
     assert (await client.post(f"/work-orders/{wo['id']}/submit", headers=hod)).json()["status"] == "PENDING_APPROVAL"
     ap = {"action": "approve", "note": "ok"}
@@ -182,7 +182,7 @@ async def test_evaluation_select_and_work_order(client, setup, fakes):
         assert db.get(Requisition, w["rid"]).status == "ORDER_PLACED"
         who = {n.user_id for n in db.scalars(select(Notification).where(Notification.type == "work_order_issued", Notification.ref_id == uuid.UUID(wo["id"])))}
         assert {w["ids"]["v1"], w["ids"]["eng"]} <= who
-    assert (await client.get(f"/work-orders/{wo['id']}", headers=v2)).status_code == 403
+    assert (await client.get(f"/work-orders/{wo['id']}", headers=v2)).status_code == 404
     assert [x["id"] for x in (await client.get("/work-orders", headers=v1)).json()] == [wo["id"]]
 
 

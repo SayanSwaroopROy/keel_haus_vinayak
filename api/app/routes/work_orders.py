@@ -33,7 +33,7 @@ from app.models import (
     WorkOrder,
 )
 from app.routes.rfqs import close_conversations, to_procure
-from app.transitions import audit, notify, notify_hods, notify_vendor, transition
+from app.transitions import audit, notify, notify_hods, notify_management, notify_vendor, transition
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
@@ -211,8 +211,7 @@ def submit(wid: uuid.UUID, user: Hod, db: DB):
     transition(db, "work_order", w, "PENDING_APPROVAL", user.id)
     w.submitted_at = datetime.now(UTC)
     audit(db, "work_order", w.id, user.id, "submitted", {"wo_number": w.wo_number, "total": float(w.total), "actor": str(user.id)})
-    for uid in db.scalars(select(User.id).where(User.role == "management")):
-        notify(db, uid, "wo_approval_requested", f"Approve work order {w.wo_number}", "work_order", w.id)
+    notify_management(db, "wo_approval_requested", f"Approve work order {w.wo_number}", "work_order", w.id)
     db.commit()
     return wo_dict(db, w)
 
@@ -235,8 +234,7 @@ def approval(wid: uuid.UUID, body: ApprovalIn, user: Mgmt, db: DB):
     else:
         transition(db, "work_order", w, "GENERATED", user.id)
         title = f"Work order {w.wo_number} rejected: {body.note}"
-    for uid in db.scalars(select(User.id).where(User.role == "hod")):
-        notify(db, uid, "wo_decided", title, "work_order", w.id)
+    notify_hods(db, "wo_decided", title, "work_order", w.id)
     audit(db, "work_order", w.id, user.id, f"approval {body.action}", {"note": body.note})
     db.commit()
     return wo_dict(db, w)
