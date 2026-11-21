@@ -3,7 +3,7 @@
 Team KeelHaus. Client: Vinayak Group. Mode: **HYBRID = EXPO + WEB**.
 
 - **Expo app** (`mobile/`, Expo Go) has two roles: **Site Engineer** and **Vendor**.
-- **Next.js HOD dashboard** (`web/`).
+- **Next.js dashboard** (`web/`) for the **HOD** and the **Management** approver.
 - **One FastAPI backend** (`api/`) and **one Postgres**.
 
 This file overrides the generic hackathon-project-rules skill. The full plan is in `docs/ARCHITECTURE.md`.
@@ -14,7 +14,9 @@ This file overrides the generic hackathon-project-rules skill. The full plan is 
   - No requisition is submitted without the engineer's confirmation.
   - No RFQ is sent without HOD approval.
   - No alternative product is accepted automatically.
-  - No vendor is selected automatically, and never on price alone.
+  - No vendor is selected automatically, and never on price alone. The HOD selects per line item.
+  - No WO is created until the HOD has selected vendors and the vendor's registration checklist is complete.
+  - No WO is floated to a vendor until a separate `management` identity approves it.
 - **Exactly two interfaces.** No vendor web portal and no second mobile app.
 - **Client data is the source of truth.** Use Vinayak's model: BOQ lines, WO codes, ERP item codes, SQFT/SQM/RMT/CUM/CFT/NOS, Comparative Statement, **Work Order** (FinalPrompt's "PO" = WO). Do not invent client formats.
 - **Never guess missing specs, quantities or units.** Null plus a flag plus a clarification question.

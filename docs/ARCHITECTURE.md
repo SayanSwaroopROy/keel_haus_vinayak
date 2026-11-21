@@ -82,7 +82,7 @@ Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter:
 - **RFQ:** `rfqs` (requisition_id, category, due_date, terms, status) · `rfq_items` · `rfq_vendors` (status RFQ_SENT → RFQ_VIEWED → VENDOR_RESPONDED → ALTERNATIVE_PROPOSED/APPROVED → QUOTATION_SUBMITTED)
 - **Comms:** `conversations` (rfq_id, vendor_id, status) · `messages` (sender_id, sender_role, type text|voice|system, text, transcript, audio_file_id, rfq_item_id, read_at) · `alternative_proposals` (rfq_item_id, original_spec, proposed_spec, brand, explanation, status, decided_by)
 - **Quotes:** `quotations` (rfq_vendor_id, source: app_form, quote_date, validity_days, gst_pct, gst_included, freight, payment_terms, advance_pct, start_days, warranty, escalation_clause, brands[], confidence, needs_review, flags[]) · `quotation_items` (rfq_item_id, uom_quoted, qty_quoted, rate, amount, normalised_rate_per_rfq_uom, confidence, raw)
-- **Decision:** `evaluations` (rfq_id, weights, rows jsonb, recommendation jsonb with reasoning, hod_decision) · `work_orders` (wo_number `VG/<PROJ>/WO/<yy-yy>/<seq>`, vendor, items, taxes, totals, terms, approved_by, status) · `audit_log` (entity, id, from_status, to_status, actor, at, payload) · `notifications` (user_id, type, ref, read_at)
+- **Decision:** `evaluations` (rfq_id, weights, rows jsonb, recommendation jsonb with per-item reasoning, item_selections jsonb) · `work_orders` (wo_number `VG/<PROJ>/WO/<yy-yy>/<seq>`, vendor, items, taxes, totals, terms, approved_by, status) · `audit_log` (entity, id, from_status, to_status, actor, at, payload) · `notifications` (user_id, type, ref, read_at)
 
 ## G. API (FastAPI; JSON; error format `{error:{code,message,details}}`)
 - Identity: `GET /users` (role picker), `GET /me`
@@ -94,8 +94,8 @@ Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter:
 - RFQ: `POST /requisitions/{id}/rfqs` (auto-match vendors by category, enforce ≥3, HOD confirms the list) · `POST /rfqs/{id}/send` (in-app notification only; no email) · `GET /rfqs` (vendor sees only own) · `GET /rfqs/{id}` (marks VIEWED)
 - Chat: `GET /conversations` · `GET/POST /conversations/{id}/messages` (text, or multipart voice that is transcribed) · `POST /alternatives` · `POST /alternatives/{id}/decision`
 - Quotes: `POST /rfqs/{id}/quotations` (app form only) · `PATCH /quotations/{id}` (human correction) · `GET /rfqs/{id}/quotations`
-- Evaluate: `POST /rfqs/{id}/evaluation` · `POST /evaluations/{id}/select` (HOD only)
-- WO: `POST /evaluations/{id}/work-order` (revalidates stock, generates a WO number, notifies the vendor) · `GET /work-orders/{id}` · `GET /work-orders/{id}/pdf` (HTML-to-print view on web)
+- Evaluate: `POST /rfqs/{id}/evaluation` · `POST /evaluations/{id}/select` (HOD only, per line item) · `POST /rfqs/{id}/request-revision`
+- WO: `POST /evaluations/{id}/work-order` (one WO per selected vendor; needs the registration checklist complete; revalidates stock; generates WO numbers) · `POST /work-orders/{id}/submit` (HOD) · `POST /work-orders/{id}/approval` (management; approve floats the WO and notifies vendor and engineer) · `GET /work-orders/{id}` · `GET /work-orders/{id}/pdf` (HTML-to-print view on web)
 - Notifications: `GET /notifications`
 - Status transitions are enforced in one `transition(entity, to, actor)` helper that writes `audit_log`.
 
@@ -139,8 +139,24 @@ Uploaded content is treated as untrusted data. The extraction prompt fences it a
 - Transparent weights, editable by the HOD: price 50, past performance 20, spec/brand compliance 10, start/delivery 10, commercial terms (advance %, payment days, validity, escalation) 10.
 - Missing data scores as "unknown" and is shown, never guessed.
 - Badges: lowest price, best performance, fastest start, best overall.
-- The LLM writes the recommendation reasoning from the computed table only (no new numbers). The HOD selects; there is never an auto-pick. Charts use recharts on web (new dependency; already common with shadcn charts).
+- The LLM writes the recommendation reasoning from the computed table only (no new numbers). The HOD compares vendors line by line (quality against price) and selects a vendor per line item; there is never an auto-pick. Charts use recharts on web (new dependency; already common with shadcn charts).
 - Expected demo result on the 4 real quotes (detail in the private notes): the cheapest quotes are expired or mis-unit, so the cheapest vendor is *not* automatically recommended. That is the pitch.
+
+## L2. SOP flow map (the 12 steps against the build)
+| SOP step | How the product handles it |
+|---|---|
+| 1 BOQ receipt | Requisition ingestion (voice, image, file, text), Phase 2 |
+| 2 BOQ checking | Uncertain fields, clarification questions, HOD "clarify" |
+| 3 Corrected BOQ | Engineer corrects, new revision, re-confirms |
+| 4 Tender docs | RFQ items, specs and six standard terms |
+| 5 Tender floating, 3+ vendors | `POST /requisitions/{id}/rfqs` enforces 3+, HOD approves the send |
+| 6 Comparative Statement | Evaluation table in Vinayak format, with all quote rounds |
+| 7 Rate negotiation | HOD requests a revision; vendor resubmits the same form as round 2, 3 ...; the statement shows rounds |
+| 8 Management approval of the CS | The HOD decides per line item (quality vs price). Management does not approve the CS separately in v1. |
+| 9 Vendor registration | `vendors.registered` plus a checklist the HOD ticks; the WO is blocked until complete. No registration form is built. |
+| 10 WO creation | HOD creates one WO per selected vendor, only after the per-item selection |
+| 11 Management approval of the WO | `PENDING_APPROVAL`; a separate `management` identity approves or rejects |
+| 12 WO floating | Approval sets `SENT`; vendor app and engineer notified |
 
 ## M. Roadmap (each phase ends demo-able; `ponytail` cuts noted)
 | Phase | Modules | Files (representative) | DB | Dependencies | Tests |
@@ -163,7 +179,7 @@ Team split: BACKEND owns `api/` and `bruno/`. FRONTEND owns `mobile/` and then `
 4. The HOD approves on web. RFQs go to the 4 waterproofing vendors (in app, plus a copy to the test inbox).
 5. A vendor sends a voice concern proposing an alternative brand. It appears on web; the HOD replies and accepts the alternative.
 6. Vendors submit through the app quotation form (the demo enters the 4 real quotes by hand, one per vendor). Expired and unit-mismatch items are flagged.
-7. Comparative statement plus recommendation with reasoning. The HOD picks, the WO is generated, and the vendor app shows the order.
+7. Comparative statement plus recommendation with reasoning. The HOD selects a vendor per line item after weighing quality against price, ticks the vendor registration checklist, creates the WO and submits it. Management approves, and only then does the vendor app show the order.
 8. Backup: a seeded "golden" state at each step via the seed script, in case a live AI call fails during the pitch.
 
 ## O. Risks and mitigation
@@ -208,7 +224,7 @@ Critical path: 1 → 2 → 6 (backend). Mobile and web can mock against the cont
   - FinalPrompt chat "real time" (2–3 s polling)
 
 ## Dummy data to create (matching Vinayak's formats, in `api/seed/dummy/*.json`, committed because it's invented)
-- Users: 2 site engineers, 1 HOD, 1 identity per vendor. Generic names, not the real names from the emails.
+- Users: 2 site engineers, 1 HOD, 1 management (web only), 1 identity per vendor. Generic names, not the real names from the emails.
 - Inventory per project: BOM materials with exact UOM (CFT/SQM/NOS/RMT) plus cement (bags) and sand (CFT). Covers full, partial and zero stock.
 - Vendor performance rows for the real vendors (names loaded from local seed), labelled `is_dummy`.
 - Vendor categories for contractor-list names (Waterproofing, Road/Civil, Testing Lab, Electrical…).

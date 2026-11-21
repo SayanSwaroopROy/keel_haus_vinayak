@@ -11,9 +11,9 @@ Migrations use `DATABASE_URL_UNPOOLED`; the app uses `DATABASE_URL`. Status colu
 | Table | Key columns | Notes |
 |---|---|---|
 | `projects` | code unique, name, is_dummy | 3 real projects (from local seed); 2 dummy |
-| `users` | name, role, vendor_id fk null, project_ids uuid[] | seeded demo identities; no password (picked in the app, sent as `X-User-Id`) |
+| `users` | name, role, vendor_id fk null, project_ids uuid[] | seeded demo identities (role: `site_engineer`, `hod`, `management`, `vendor`); no password (picked in the app, sent as `X-User-Id`) |
 | `item_codes` | code (**not unique**), description, category, embedding vector(`OPENROUTER_EMBEDDING_DIMENSIONS`) | the real ERP list keeps its duplicates; hnsw cosine index |
-| `vendors` | name unique, categories text[], category_source, brands text[], status | gin(categories); no email is stored or sent |
+| `vendors` | name unique, categories text[], category_source, brands text[], status, registered bool, registration_checklist jsonb | `registered` = every checklist item ticked by the HOD; gin(categories); no email is stored or sent |
 | `vendor_performance` | vendor_id fk, project_id fk, quality, delivery, disputes smallint, note, is_dummy | |
 | `source_files` | kind, mime, filename, size, sha256, path, page_count, uploaded_by fk | path under `api/storage/` (gitignored) |
 | `ingestion_jobs` | source_file_id fk null, requisition_id fk null, quotation_id fk null, status, step, detected_lang, raw_text, transcript, error, created_by | |
@@ -28,10 +28,10 @@ Migrations use `DATABASE_URL_UNPOOLED`; the app uses `DATABASE_URL`. Status colu
 | `conversations` | rfq_id fk, vendor_id fk, status | unique(rfq_id, vendor_id) |
 | `messages` | conversation_id fk, sender_id fk, sender_role, type, text, transcript, audio_file_id fk, rfq_item_id fk null, read_at | idx (conversation_id, created_at) |
 | `alternative_proposals` | rfq_item_id fk, vendor_id fk, original_spec, proposed_spec, proposed_brand, explanation, status, decided_by, decided_at, note | |
-| `quotations` | rfq_id fk, vendor_id fk, source (`app_form`), status, quote_date, validity_days, gst_pct, gst_included, freight, payment_terms, advance_pct, start_days, warranty, escalation_clause, brands text[], confidence, flags text[], remarks | unique(rfq_id, vendor_id) |
+| `quotations` | rfq_id fk, vendor_id fk, round int default 1, source (`app_form`), status, quote_date, validity_days, gst_pct, gst_included, freight, payment_terms, advance_pct, start_days, warranty, escalation_clause, brands text[], confidence, flags text[], remarks | unique(rfq_id, vendor_id, round); older rounds are kept, the latest is evaluated |
 | `quotation_items` | quotation_id fk, rfq_item_id fk null, description, uom_quoted, qty_quoted, rate, amount, rate_in_rfq_uom, confidence | |
-| `evaluations` | rfq_id fk unique, weights jsonb, rows jsonb, recommendation jsonb, selected_vendor_id, hod_note | recompute overwrites rows; the selection is kept |
-| `work_orders` | wo_number unique, requisition_id, rfq_id, vendor_id, items jsonb, subtotal, gst, freight, total, terms text[], approved_by, status | |
+| `evaluations` | rfq_id fk unique, weights jsonb, rows jsonb, recommendation jsonb (per item), item_selections jsonb (rfq_item_id → vendor_id), hod_note | recompute overwrites rows; the selection is kept |
+| `work_orders` | wo_number unique, requisition_id, rfq_id, vendor_id, items jsonb, subtotal, gst, freight, total, terms text[], created_by (hod), submitted_at, approved_by (management), approval_note, status | one WO per selected vendor; status `GENERATED, PENDING_APPROVAL, SENT, ACKNOWLEDGED, COMPLETED, CANCELLED` |
 | `notifications` | user_id fk, type, ref_type, ref_id, title, read_at | idx (user_id, read_at) |
 | `audit_log` | entity, entity_id, from_status, to_status, actor_id, payload jsonb | append-only |
 

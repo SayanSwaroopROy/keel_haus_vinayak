@@ -24,4 +24,7 @@ All notifications are in-app only, between the mobile app and the HOD web. No em
 | `alternative_proposed` | hod | vendor proposes |
 | `alternative_decided` | vendor | HOD decides |
 | `quotation_submitted` | hod | vendor submits the quote form (or the HOD enters it) |
-| `work_order_issued` | vendor, engineer | WO generated |
+| `revision_requested` | vendor | HOD asks for a revised quote |
+| `wo_approval_requested` | management | HOD submits a WO |
+| `wo_decided` | hod | management approves or rejects |
+| `work_order_issued` | vendor, engineer | management approves, WO is `SENT` |

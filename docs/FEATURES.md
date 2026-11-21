@@ -14,6 +14,8 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - **No email at all.** No Resend, no `RFQ_TEST_INBOX`. All notifications are in-app, between the mobile app and the HOD web.
 - **Vendor quotes are app-form only.** No quotation PDF, scan or image upload. No `handwritten_low_confidence` or `missing_gst` flags.
 - Requisition ingestion (voice, image, PDF, spreadsheet) is unchanged.
+- **SOP additions:** revised quotation rounds (step 7), vendor-registered checklist (step 9), management WO approval with `PENDING_APPROVAL` (step 11). Management is a 4th identity on the web.
+- **Vendor selection is per line item** (HOD weighs quality vs price), then the HOD creates one WO per selected vendor. Flow map: `docs/ARCHITECTURE.md` section L2.
 
 ---
 
@@ -38,7 +40,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [x] `BE` `GET /health`, `GET /projects`; `GET /me` reads `X-User-Id` (rework)
 - [x] `BE` `GET /notifications`, `POST /notifications/{id}/read`
 - [x] `BE` Seed: dummy users, vendors, projects, inventory (`api/seed/dummy/`)
-- [ ] `BE` Seed: demo identities (no passwords), real item codes, vendors and standard RFQ terms from local `vinayak-vch3-data/` (never committed)
+- [ ] `BE` Seed: demo identities incl. 1 `management` (no passwords), real item codes, vendors and standard RFQ terms from local `vinayak-vch3-data/` (never committed)
 - [ ] `BE` Seed: item-code embeddings (OpenRouter)
 - [ ] `BE` "Golden state" seed per demo step (fallback if a live AI call fails)
 - [ ] `BE` pytest: identity header, roles, transitions (update for no-login)
@@ -184,44 +186,53 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 ### Quotations (BE)
 
 - [ ] `BE` `POST /rfqs/{id}/quotations` JSON form only (vendor, or HOD on behalf). No file upload.
+- [ ] `BE` Revised quotes: repeat submit creates `round + 1`, old rounds kept, latest is evaluated, `409` after selection
+- [ ] `BE` `POST /rfqs/{id}/request-revision` (HOD), rfq_vendor `REVISION_REQUESTED`, notification `revision_requested`
 - [ ] `BE` UOM normalisation to RFQ UOM (`rate_in_rfq_uom`)
 - [ ] `BE` Flags: `expired_offer`, `unit_mismatch`, `qty_differs_from_rfq`, `missing_terms`, `brand_substitution`, `escalation_clause`, `undated`, `payment_terms_open`
 - [ ] `BE` `PATCH /quotations/{id}` human correction → `VERIFIED`
-- [ ] `BE` `GET /rfqs/{id}/quotations`
+- [ ] `BE` `GET /rfqs/{id}/quotations` (all rounds)
 - [ ] `BE` Golden test: the 4 real quotes entered as form payloads (local data only)
 - [ ] `BE` Notification `quotation_submitted`
 
 ### Evaluation (BE)
 
 - [ ] `BE` `POST/GET /rfqs/{id}/evaluation` with editable weights (price 50, performance 20, compliance 10, delivery 10, terms 10)
-- [ ] `BE` Landed total: repriced at RFQ qty + GST + freight
+- [ ] `BE` Landed total: repriced at RFQ qty + GST + freight, per vendor and per line item, with round history
 - [ ] `BE` Unknowns shown as unknown, never guessed
 - [ ] `BE` Badges: lowest price, best performance, fastest start, best overall
-- [ ] `BE` LLM recommendation text from computed table only
-- [ ] `BE` `POST /evaluations/{id}/select` (HOD only, never automatic)
+- [ ] `BE` LLM recommendation text (overall and per line item) from computed table only
+- [ ] `BE` `POST /evaluations/{id}/select` with `{selections: [{rfq_item_id, vendor_id}], note}` (HOD only, per line item, never automatic)
+- [ ] `BE` `PATCH /vendors/{id}/registration` checklist; `registered` when all ticked (HOD only)
 
 ### Work order (BE)
 
-- [ ] `BE` `POST /evaluations/{id}/work-order`, revalidates stock, `409 conflict` if changed
+- [ ] `BE` `POST /evaluations/{id}/work-order`: one WO per selected vendor with only that vendor's items; `409 vendor_not_registered` if the checklist is incomplete; revalidates stock, `409 conflict` if changed
+- [ ] `BE` `POST /work-orders/{id}/submit` (HOD) → `PENDING_APPROVAL`, notify management
+- [ ] `BE` `POST /work-orders/{id}/approval` (management only): approve → `SENT`, reject → `GENERATED` with note
+- [ ] `BE` Role `management` in guards; vendor and engineer see a WO only from `SENT`
 - [ ] `BE` WO number `VG/<PROJ>/WO/<yy-yy>/<seq>`
 - [ ] `BE` `GET /work-orders`, `GET /work-orders/{id}`
-- [ ] `BE` Notification `work_order_issued`; status flow GENERATED → SENT → ACKNOWLEDGED → COMPLETED
+- [ ] `BE` Notifications `wo_approval_requested`, `wo_decided`, `work_order_issued` (on `SENT`); status flow GENERATED → PENDING_APPROVAL → SENT → ACKNOWLEDGED → COMPLETED
 - [ ] `BE` Requisition moves through RFQ_FLOATED → UNDER_EVALUATION → VENDOR_SELECTED → WO_GENERATED → ORDER_PLACED → COMPLETED
 
 ### Vendor app (MOB)
 
 - [ ] `FE-MOB` Quotation form (items, rates, GST, freight, payment terms, validity, start days, warranty)
-- [ ] `FE-MOB` My quotations and status
+- [ ] `FE-MOB` My quotations and status, with rounds; "revision requested" prompt and resubmit through the same form
 - [ ] `FE-MOB` Work orders list and detail, acknowledge
 
 ### HOD web (WEB)
 
 - [ ] `FE-WEB` Quotation list per RFQ with flags, edit and verify
 - [ ] `FE-WEB` Enter a quotation on behalf of a vendor (same form)
-- [ ] `FE-WEB` Comparative Statement table (Vinayak format) + charts (recharts)
+- [ ] `FE-WEB` Request revision from a vendor (with note)
+- [ ] `FE-WEB` Comparative Statement table (Vinayak format) with quote rounds, line-item comparison of quality (performance) vs price, + charts (recharts)
 - [ ] `FE-WEB` Weight sliders, recompute
-- [ ] `FE-WEB` Recommendation with reasoning; explicit "Select vendor" with note
-- [ ] `FE-WEB` Generate WO, WO view / print
+- [ ] `FE-WEB` Recommendation with reasoning; per-line-item vendor selection with note
+- [ ] `FE-WEB` Vendor registration checklist (tick items); shows registered or not
+- [ ] `FE-WEB` Create WO(s) after selection (blocked until checklist complete), WO view / print, Submit for approval
+- [ ] `FE-WEB` Management view (identity picker `management`): WO list, WO detail, Approve / Reject with note
 - [ ] `FE-WEB` Vendor feedback capture after completion (real performance rows)
 
 ## Phase 7: Integration and demo (INT)
@@ -244,7 +255,9 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [ ] `INT` No requisition submitted without engineer confirmation
 - [ ] `INT` No RFQ sent without HOD approval
 - [ ] `INT` No alternative accepted automatically
-- [ ] `INT` No vendor selected automatically or on price alone
+- [ ] `INT` No vendor selected automatically or on price alone; selection is per line item by the HOD
+- [ ] `INT` No WO created without a complete vendor registration checklist
+- [ ] `INT` No WO floated to a vendor without management approval
 - [ ] `INT` Missing specs/qty/units are null + flagged, never guessed
 - [ ] `INT` Every status change written to `audit_log`
 - [ ] `INT` Polling stops when screen unfocused
