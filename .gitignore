@@ -1,0 +1,28 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# deps / build
+node_modules/
+.next/
+.expo/
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.vercel/
+.DS_Store
+
+# confidential Vinayak data pack + problem statement (do not share/commit)
+vinayak-vch3-data/
+Vinayak.pdf
+Vinayak.json
+.claude/
+
+
+# uploaded files (originals, may contain client data)
+api/storage/
+docs/private/
+FinalPrompt.md

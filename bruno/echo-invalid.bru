@@ -1,0 +1,19 @@
+meta {
+  name: echo invalid
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/echo
+  body: json
+  auth: none
+}
+
+body:json {
+  { "message": "" }
+}
+
+assert {
+  res.status: eq 422
+}

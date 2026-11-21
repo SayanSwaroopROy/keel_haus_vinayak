@@ -1,0 +1,43 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "Hackathon FastAPI backend"
+authors = [
+    { name = "datparth", email = "datparth@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi>=0.165.0",
+    "httpx>=0.28.1",
+    "openai>=3.57.0",
+    "pgvector>=0.5.1",
+    "psycopg[binary]>=3.3.9",
+    "pydantic>=2.14.4",
+    "python-dotenv>=1.2.4",
+    "sarvamai>=0.1.48",
+    "sqlalchemy>=2.1.9",
+    "upstash-redis>=1.9.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+agents = [
+    "langchain-core>=1.8.4",
+    "langgraph>=1.2.24",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "ruff>=0.17.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100

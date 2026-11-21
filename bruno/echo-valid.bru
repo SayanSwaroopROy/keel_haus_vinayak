@@ -1,0 +1,29 @@
+meta {
+  name: echo valid
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/echo
+  body: json
+  auth: none
+}
+
+body:json {
+  { "message": "hi" }
+}
+
+assert {
+  res.status: eq 200
+  res.body.echo: eq hi
+  res.body.length: eq 2
+}
+
+tests {
+  test("schema: echo string, length int", function () {
+    expect(Object.keys(res.body).sort()).to.eql(["echo", "length"]);
+    expect(res.body.echo).to.be.a("string");
+    expect(Number.isInteger(res.body.length)).to.equal(true);
+  });
+}
