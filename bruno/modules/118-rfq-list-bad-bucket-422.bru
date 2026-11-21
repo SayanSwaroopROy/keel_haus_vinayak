@@ -1,0 +1,20 @@
+meta {
+  name: rfq list bad bucket 422
+  type: http
+  seq: 118
+}
+
+get {
+  url: {{baseUrl}}/rfqs?bucket=nope
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.code: eq validation_error
+}

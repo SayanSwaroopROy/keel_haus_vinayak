@@ -1,0 +1,20 @@
+meta {
+  name: unknown requisition is 404
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/requisitions/00000000-0000-0000-0000-000000000000
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.code: eq not_found
+}

@@ -7,14 +7,20 @@ meta {
 get {
   url: {{baseUrl}}/projects
   body: none
-  auth: bearer
+  auth: none
 }
 
-auth:bearer {
-  token: {{token}}
+headers {
+  X-User-Id: {{id_hod}}
 }
 
 assert {
   res.status: eq 200
   res.body: isArray
+}
+
+script:pre-request {
+  const axios = require("axios");
+  const users = (await axios.get(bru.getEnvVar("baseUrl") + "/users?role=hod")).data;
+  bru.setVar("id_hod", users[0].id);
 }

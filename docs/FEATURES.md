@@ -17,6 +17,8 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - **SOP additions:** revised quotation rounds (step 7), vendor-registered checklist (step 9), management WO approval with `PENDING_APPROVAL` (step 11). Management is a 4th identity on the web.
 - **Vendor selection is per line item** (HOD weighs quality vs price), then the HOD creates one WO per selected vendor. Flow map: `docs/ARCHITECTURE.md` section L2.
 
+> **Status note (2026-11-21 fix pass):** backend code under `api/` and `bruno/` changed again (WO acknowledge, complete and cancel; RFQ close; alternative reply; many 409 and 422 guards). No tests were run in that pass, so nothing in this list is ticked on its strength. Backend detail and open items are in `docs/BACKEND_FEATURES.md`.
+
 ---
 
 ## Phase 0: Contracts and setup (INT)
@@ -52,7 +54,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 ### Upload and pipeline
 
 - [ ] `BE` `POST /ingest` multipart upload, size limit 20 MB (`file_too_large`), MIME/extension validation (`unsupported_file`, file still stored)
-- [ ] `BE` SHA-256 dedupe, storage under gitignored `api/storage/`
+- [ ] `BE` SHA-256 dedupe (same user, project, hash and a non-failed job returns `200` with the existing job; a mismatched `input_type` gives `422`; more than 500 items gives `422`), storage under gitignored `api/storage/`
 - [ ] `BE` `GET /ingest/{job_id}` with step progress (validate → detect → extract → ocr/stt → lang → llm → normalise → done)
 - [ ] `BE` `POST /requisitions` (pasted WhatsApp text / form)
 - [ ] `BE` Language detection (bn / hi / en)
@@ -63,7 +65,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [ ] `BE` Image: OpenRouter vision (handwriting, whiteboard, photo) with per-field confidence
 - [ ] `BE` PDF digital (pypdf with page refs)
 - [ ] `BE` PDF scanned / handwritten (pypdfium2 render, then vision)
-- [ ] `BE` CSV / XLSX / ODS (header synonyms + LLM fallback)
+- [ ] `BE` CSV / XLSX / ODS (header synonyms + LLM fallback; `wo_code` and `item_code` are separate; `work` only with a WO or BOQ code, else `material`)
 - [ ] `BE` DOCX / TXT
 - [ ] `BE` DOC / RTF / ODT: clear "export as PDF/DOCX" error, file kept
 - [ ] `BE` Prompt-injection safety: document content fenced as data, output forced through pydantic schema
@@ -72,7 +74,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 - [ ] `BE` Structured `ReqItem` extraction (work vs material, WO code, UOM, qty, brand, spec, remarks)
 - [ ] `BE` Never guess: null + `uncertain_fields` + `clarification_question`
-- [ ] `BE` Unit handling: keep `original_qty` / `original_uom`; SQM↔SQFT ×10.764, CUM↔CFT ×35.31; flag >0.1% differences
+- [ ] `BE` Unit handling: ingestion maps unit synonyms only and keeps `original_qty` / `original_uom` (no conversion); SQM↔SQFT and CUM↔CFT conversion happens in the stock check and evaluation
 - [ ] `BE` Confidence score per item
 
 ### Confirmation loop (human in the loop)
@@ -88,9 +90,9 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 ### Item codes
 
 - [ ] `BE` `POST /requisitions/{id}/match-codes` (embedding top-k)
-- [ ] `BE` Duplicate detection (same code different description; cosine > 0.92)
+- [ ] `BE` Duplicate detection (near-identical text under different codes; cosine at or above 0.90; usable match at or above 0.68, both in `app/codes.py`)
 - [ ] `BE` New code suggestion following `WP.xx.y` pattern
-- [ ] `BE` `POST /requisitions/{id}/items/{item_id}/code` (HOD assigns or creates)
+- [ ] `BE` `POST /requisitions/{id}/items/{item_id}/code` (HOD assigns or creates; only in `PENDING_APPROVAL`)
 - [ ] `BE` Tests: per-format fixtures, unit traps, injection fixture
 
 ## Phase 3: Mobile, Site Engineer (MOB)
@@ -132,11 +134,11 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ### Backend for this phase (BE)
 
-- [ ] `BE` `GET /dashboard/stats`
+- [ ] `BE` `GET /dashboard/stats` (orders and spend count only `SENT`, `ACKNOWLEDGED`, `COMPLETED` WOs)
 - [ ] `BE` `GET /requisitions/{id}/stock-check`
 - [ ] `BE` `POST /requisitions/{id}/decision` (approve reserves stock in a transaction with `SELECT … FOR UPDATE`)
 - [ ] `BE` `GET /inventory`
-- [ ] `BE` `GET/POST/PATCH /vendors`, `POST /vendors/{id}/performance`
+- [ ] `BE` `GET/POST/PATCH /vendors`, `POST /vendors/{id}/performance` (`409` unless the vendor has a `COMPLETED` WO on the project; registration checklist is strict typed)
 - [ ] `BE` Vendor category inference from past quotes (`category_source`)
 - [ ] `BE` `GET /files/{id}` authorised file serving
 - [ ] `BE` Notification `requisition_decided` to engineer
@@ -162,7 +164,10 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 ### Alternatives (BE)
 
 - [ ] `BE` `POST /alternatives` (vendor)
-- [ ] `BE` `POST /alternatives/{id}/decision` (accept / reject / request_info; accept writes new `rfq_item.spec_version`, old spec preserved)
+- [ ] `BE` `POST /alternatives/{id}/decision` (accept / reject / request_info; accept writes new `rfq_item.spec_version`, old spec preserved, and notifies every vendor on the RFQ)
+- [ ] `BE` `POST /alternatives/{id}/reply` (vendor answers an info request: `INFO_REQUESTED` to `PROPOSED`)
+- [ ] `BE` `POST /rfqs/{id}/close` (HOD); requisition cancel closes open RFQs and conversations (known gap: `rfq_vendors.status` unchanged)
+- [ ] `BE` Management reads every conversation, read-only
 - [ ] `BE` Notifications `alternative_proposed`, `alternative_decided`
 
 ### Vendor app (MOB)
@@ -190,7 +195,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [ ] `BE` `POST /rfqs/{id}/request-revision` (HOD), rfq_vendor `REVISION_REQUESTED`, notification `revision_requested`
 - [ ] `BE` UOM normalisation to RFQ UOM (`rate_in_rfq_uom`)
 - [ ] `BE` Flags: `expired_offer`, `unit_mismatch`, `qty_differs_from_rfq`, `missing_terms`, `brand_substitution`, `escalation_clause`, `undated`, `payment_terms_open`
-- [ ] `BE` `PATCH /quotations/{id}` human correction → `VERIFIED`
+- [ ] `BE` `PATCH /quotations/{id}` human correction → `VERIFIED` (HOD, latest round only, before selection lock; `422` for unmapped or duplicate lines)
 - [ ] `BE` `GET /rfqs/{id}/quotations` (all rounds)
 - [ ] `BE` Golden test: the 4 real quotes entered as form payloads (local data only)
 - [ ] `BE` Notification `quotation_submitted`
@@ -201,7 +206,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [ ] `BE` Landed total: repriced at RFQ qty + GST + freight, per vendor and per line item, with round history
 - [ ] `BE` Unknowns shown as unknown, never guessed
 - [ ] `BE` Badges: lowest price, best performance, fastest start, best overall
-- [ ] `BE` LLM recommendation text (overall and per line item) from computed table only
+- [ ] `BE` LLM recommendation text (overall and per line item) from computed table only; numbers validated, deterministic fallback (`source: fallback`); `per_item` covers every item; rows carry `performance_is_dummy`; recompute `409` after selection
 - [ ] `BE` `POST /evaluations/{id}/select` with `{selections: [{rfq_item_id, vendor_id}], note}` (HOD only, per line item, never automatic)
 - [ ] `BE` `PATCH /vendors/{id}/registration` checklist; `registered` when all ticked (HOD only)
 
@@ -211,7 +216,9 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [ ] `BE` `POST /work-orders/{id}/submit` (HOD) → `PENDING_APPROVAL`, notify management
 - [ ] `BE` `POST /work-orders/{id}/approval` (management only): approve → `SENT`, reject → `GENERATED` with note
 - [ ] `BE` Role `management` in guards; vendor and engineer see a WO only from `SENT`
-- [ ] `BE` WO number `VG/<PROJ>/WO/<yy-yy>/<seq>`
+- [ ] `BE` WO number `VG/<PROJ>/WO/<yy-yy>/<seq>` (seq = max + 1)
+- [ ] `BE` `POST /work-orders/{id}/acknowledge` (vendor), `/complete` (HOD), `/cancel` (HOD before `SENT`, management once `SENT`; reason required); requisition `ORDER_PLACED` only when all non-cancelled WOs are `SENT`, `COMPLETED` when all are complete, back to `VENDOR_SELECTED` if all cancelled
+- [ ] `BE` Submit and approve re-check the vendor is registered and not blocked; engineers read WOs of their own requisitions from `SENT`
 - [ ] `BE` `GET /work-orders`, `GET /work-orders/{id}`
 - [ ] `BE` Notifications `wo_approval_requested`, `wo_decided`, `work_order_issued` (on `SENT`); status flow GENERATED → PENDING_APPROVAL → SENT → ACKNOWLEDGED → COMPLETED
 - [ ] `BE` Requisition moves through RFQ_FLOATED → UNDER_EVALUATION → VENDOR_SELECTED → WO_GENERATED → ORDER_PLACED → COMPLETED

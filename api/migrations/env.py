@@ -8,14 +8,14 @@ from sqlalchemy import engine_from_config, pool
 config = context.config
 
 # Read the DB URL from the root .env (Neon unpooled URL: migrations need a direct connection).
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-_db_url = os.environ["DATABASE_URL_UNPOOLED"].replace("postgresql://", "postgresql+psycopg://", 1)
-config.set_main_option("sqlalchemy.url", _db_url.replace("%", "%%"))
+from app.db import migration_url  # direct (non-pooled) URL
+
+config.set_main_option("sqlalchemy.url", migration_url().replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

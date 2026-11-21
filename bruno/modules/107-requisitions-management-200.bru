@@ -1,0 +1,19 @@
+meta {
+  name: requisitions management 200
+  type: http
+  seq: 107
+}
+
+get {
+  url: {{baseUrl}}/requisitions
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_mgmt}}
+}
+
+assert {
+  res.status: eq 200
+}

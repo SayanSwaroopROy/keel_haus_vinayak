@@ -1,0 +1,20 @@
+meta {
+  name: work order generate unknown 404
+  type: http
+  seq: 142
+}
+
+post {
+  url: {{baseUrl}}/evaluations/00000000-0000-0000-0000-000000000000/work-order
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+assert {
+  res.status: eq 404
+  res.body.error.code: eq not_found
+}

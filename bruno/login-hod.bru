@@ -1,24 +1,20 @@
 meta {
-  name: login hod
+  name: users hod
   type: http
   seq: 3
 }
 
-post {
-  url: {{baseUrl}}/auth/login
-  body: json
+get {
+  url: {{baseUrl}}/users?role=hod
+  body: none
   auth: none
-}
-
-body:json {
-  { "username": "hod", "password": "{{process.env.SEED_PASSWORD}}" }
 }
 
 assert {
   res.status: eq 200
-  res.body.user.role: eq hod
+  res.body[0].role: eq hod
 }
 
 script:post-response {
-  bru.setVar("token", res.body.token);
+  bru.setVar("persona_id", res.body[0].id);
 }

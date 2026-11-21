@@ -1,0 +1,20 @@
+meta {
+  name: ingest vendor 403
+  type: http
+  seq: 103
+}
+
+post {
+  url: {{baseUrl}}/ingest
+  body: none
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_vendor_a}}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

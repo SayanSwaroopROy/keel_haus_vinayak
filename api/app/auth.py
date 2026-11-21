@@ -1,59 +1,30 @@
-"""bcrypt passwords + JWT bearer auth. Roles/vendor scoping are enforced here, never in the client."""
+"""Identity without login (docs/API_CONTRACT.md): every request sends `X-User-Id`. Roles/vendor scoping are enforced here,
+never in the client. This is a demo convenience, not security."""
 
-import os
 import uuid
-from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-import bcrypt
-import jwt
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.errors import ApiError, forbidden
 from app.models import User
 
-_bearer = HTTPBearer(auto_error=False)
-TOKEN_HOURS = 12
-
-
-def _secret() -> str:
-    s = os.environ.get("JWT_SECRET")
-    if not s:
-        raise RuntimeError("JWT_SECRET is not set (see .env.example)")
-    return s
-
-
-def hash_password(pw: str) -> str:
-    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(pw: str, hashed: str) -> bool:
-    return bcrypt.checkpw(pw.encode(), hashed.encode())
-
-
-def make_token(u: User) -> str:
-    exp = datetime.now(UTC) + timedelta(hours=TOKEN_HOURS)
-    claims = {"sub": str(u.id), "role": u.role, "vendor_id": str(u.vendor_id) if u.vendor_id else None, "exp": exp}
-    return jwt.encode(claims, _secret(), algorithm="HS256")
-
 
 def current_user(
-    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     db: Annotated[Session, Depends(get_db)],
+    x_user_id: Annotated[str | None, Header()] = None,
 ) -> User:
-    if not creds:
-        raise ApiError(401, "unauthorized", "Missing token")
+    if not x_user_id:
+        raise ApiError(401, "unauthorized", "Missing X-User-Id")
     try:
-        claims = jwt.decode(creds.credentials, _secret(), algorithms=["HS256"])
-        user = db.get(User, uuid.UUID(claims["sub"]))
-    except (jwt.PyJWTError, ValueError, KeyError):
-        raise ApiError(401, "unauthorized", "Invalid or expired token") from None
+        user = db.get(User, uuid.UUID(x_user_id))
+    except ValueError:
+        user = None
     if not user:
         raise ApiError(401, "unauthorized", "Unknown user")
-    return user  # role/vendor_id come from the DB row, not the token claims
+    return user  # role/vendor_id always come from the DB row
 
 
 def require_role(*roles: str):

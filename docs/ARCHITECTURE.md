@@ -23,7 +23,7 @@ Role mapping:
 ## A. Existing repository assessment
 | Area | State |
 |---|---|
-| `api/` | FastAPI on Python 3.14 (uv). Has `/health` and `/echo`, pydantic, alembic (env reads `DATABASE_URL_UNPOOLED`) with no migrations yet, and 3 pytest tests via httpx ASGITransport. Dependencies already include openai, sarvamai, sqlalchemy, psycopg, pgvector, upstash-redis and langgraph (optional). **Missing:** python-multipart (needed for uploads), pypdf, openpyxl, python-docx, PyJWT, bcrypt. |
+| `api/` | FastAPI on Python 3.14 (uv). Has all routers (see `docs/API_CONTRACT.md`), pydantic, alembic migrations `0001`-`0006` (env reads `DATABASE_URL_UNPOOLED`) and pytest tests via httpx ASGITransport against the dev DB. No JWT, no passwords (identity is `X-User-Id`). |
 | `mobile/` | Expo SDK 58 template: expo-router (`src/app`: index, explore), TanStack Query, zustand, zod. No audio, camera or picker packages yet. One template lint error in `src/hooks/use-color-scheme.web.ts`. |
 | `web/` | Next.js 16.4, React 19.3, Tailwind 4, shadcn (only `button`), TanStack Query, react-hook-form, zod, vitest + supertest. Template page only. |
 | `bruno/` | Requests for health and echo. |
@@ -72,7 +72,7 @@ Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter:
 
 ## F. Database (ER summary; alembic migration `0001_init`)
 - **Org:** `projects` (3 real project names from local seed + 2 dummy = 5 active) · `users` (role: site_engineer | hod | vendor, `vendor_id` null unless vendor, `project_ids`)
-- **Catalogue:** `item_codes` (code, description, category, embedding; duplicate codes allowed) · `vendors` (name, categories[], brands[], contact_email = test inbox, status, `category_source` inferred|manual) · `vendor_performance` (project, quality, delivery, disputes 1–5, note, `is_dummy`)
+- **Catalogue:** `item_codes` (code, description, category, embedding; duplicate codes allowed) · `vendors` (name, categories[], brands[], registered, registration_checklist, status, `category_source` inferred|manual) · `vendor_performance` (project, quality, delivery, disputes 1–5, note, `is_dummy`)
 - **Ingestion:** `source_files` (kind, mime, path, sha256, page_count, uploaded_by) · `ingestion_jobs` (status, step, error, detected_lang, transcript, raw_text)
 - **Requisition:** `requisitions` (project, raised_by, input_type, original_lang, source_file_id, status, confirmed_at) · `requisition_revisions` (version, items_json, `actor`: ai|user, change_note: original extraction plus every correction) · `requisition_items`:
   - kind: work | material

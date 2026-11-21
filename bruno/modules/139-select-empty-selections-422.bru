@@ -1,0 +1,24 @@
+meta {
+  name: select empty selections 422
+  type: http
+  seq: 139
+}
+
+post {
+  url: {{baseUrl}}/evaluations/00000000-0000-0000-0000-000000000000/select
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+body:json {
+  { "selections": [], "note": "x" }
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.code: eq validation_error
+}

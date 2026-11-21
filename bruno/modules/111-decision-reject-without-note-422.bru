@@ -1,0 +1,24 @@
+meta {
+  name: decision reject without note 422
+  type: http
+  seq: 111
+}
+
+post {
+  url: {{baseUrl}}/requisitions/00000000-0000-0000-0000-000000000000/decision
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_hod}}
+}
+
+body:json {
+  { "action": "reject" }
+}
+
+assert {
+  res.status: eq 422
+  res.body.error.code: eq validation_error
+}

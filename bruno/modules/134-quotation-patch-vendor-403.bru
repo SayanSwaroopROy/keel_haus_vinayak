@@ -1,0 +1,24 @@
+meta {
+  name: quotation patch vendor 403
+  type: http
+  seq: 134
+}
+
+patch {
+  url: {{baseUrl}}/quotations/00000000-0000-0000-0000-000000000000
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_vendor_a}}
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}

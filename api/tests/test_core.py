@@ -1,9 +1,6 @@
-import os
 import uuid
-from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-import jwt
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -21,48 +18,23 @@ async def test_health(client):
 
 
 async def test_error_format_validation_and_404(client):
-    r = await client.post("/auth/login", json={"username": ""})
-    assert r.status_code == 422
-    e = r.json()["error"]
-    assert e["code"] == "validation_error" and isinstance(e["details"], list)
+    r = await client.get("/users", params={"role": 5, "x": 1})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "validation_error"
     r = await client.get("/nope")
     assert r.status_code == 404 and r.json()["error"]["code"] == "not_found"
 
 
-async def test_login_ok_and_me(client, world):
-    r = await client.post("/auth/login", json={"username": world["eng"].username, "password": world["pw"]})
-    body = r.json()
-    assert r.status_code == 200 and body["user"]["role"] == "site_engineer" and "password" not in str(body)
-    me = await client.get("/me", headers={"Authorization": f"Bearer {body['token']}"})
-    assert me.json()["id"] == str(world["ids"]["eng"])
+async def test_users_list_and_me(client, world):
+    r = await client.get("/users", params={"role": "management"})
+    assert r.status_code == 200 and all(u["role"] == "management" for u in r.json())
+    me = await client.get("/me", headers={"X-User-Id": str(world["ids"]["eng"])})
+    assert me.json()["id"] == str(world["ids"]["eng"]) and me.json()["role"] == "site_engineer"
 
 
-async def test_login_wrong_password_and_unknown_user_same_error(client, world):
-    a = await client.post("/auth/login", json={"username": world["eng"].username, "password": "wrong"})
-    b = await client.post("/auth/login", json={"username": "no_such_user_x", "password": "wrong"})
-    assert a.status_code == b.status_code == 401
-    assert a.json() == b.json()
-
-
-async def test_missing_bad_and_expired_token(client, world):
+async def test_missing_or_unknown_user_id_401(client):
     assert (await client.get("/me")).status_code == 401
-    assert (await client.get("/me", headers={"Authorization": "Bearer garbage"})).status_code == 401
-    with SessionLocal() as db:
-        u = db.get(User, world["ids"]["eng"])
-        expired = jwt.encode({"sub": str(u.id), "exp": datetime.now(UTC) - timedelta(hours=1)},
-                             os.environ["JWT_SECRET"], algorithm="HS256")
-    assert (await client.get("/me", headers={"Authorization": f"Bearer {expired}"})).status_code == 401
-
-
-async def test_token_role_claim_is_not_trusted(client, world):
-    """A vendor token that claims role=hod must still be treated by the DB role."""
-    with SessionLocal() as db:
-        u = db.get(User, world["ids"]["v1"])
-        forged = jwt.encode({"sub": str(u.id), "role": "hod", "vendor_id": None,
-                             "exp": datetime.now(UTC) + timedelta(hours=1)},
-                            os.environ["JWT_SECRET"], algorithm="HS256")
-    r = await client.get("/me", headers={"Authorization": f"Bearer {forged}"})
-    assert r.json()["role"] == "vendor"
+    assert (await client.get("/me", headers={"X-User-Id": "garbage"})).status_code == 401
+    assert (await client.get("/me", headers={"X-User-Id": str(uuid.uuid4())})).status_code == 401
 
 
 async def test_projects_scoped_by_role(client, world):

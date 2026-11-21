@@ -1,0 +1,24 @@
+meta {
+  name: vendor create engineer 403
+  type: http
+  seq: 121
+}
+
+post {
+  url: {{baseUrl}}/vendors
+  body: json
+  auth: none
+}
+
+headers {
+  X-User-Id: {{id_eng}}
+}
+
+body:json {
+  { "name": "x" }
+}
+
+assert {
+  res.status: eq 403
+  res.body.error.code: eq forbidden
+}
