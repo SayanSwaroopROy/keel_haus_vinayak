@@ -21,6 +21,10 @@ const ICONS = {
   add: { ios: 'plus', android: 'add' },
   warning: { ios: 'exclamationmark.triangle', android: 'warning' },
   inbox: { ios: 'tray', android: 'inbox' },
+  play: { ios: 'play.fill', android: 'play_arrow' },
+  pause: { ios: 'pause.fill', android: 'pause' },
+  stop: { ios: 'stop.fill', android: 'stop' },
+  gallery: { ios: 'photo.on.rectangle', android: 'photo_library' },
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -1,10 +1,11 @@
+import { useEffect } from 'react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useIdentity } from '@/lib/identity';
 
-import { api } from './endpoints';
+import { api, type UploadFile } from './endpoints';
 import { isApiError } from './errors';
-import type { ReqItem, Requisition, Role } from './schemas';
+import type { InputType, ReqItem, Requisition, Role } from './schemas';
 
 const NOTIFICATION_POLL_MS = 5_000;
 const INGEST_POLL_MS = 1_500;
@@ -94,6 +95,7 @@ export function useRequisition(id: string) {
     queryKey: queryKeys.requisition(userId, id),
     queryFn: () => api.getRequisition(id),
     enabled: userId !== null,
+    refetchInterval: 5_000,
   });
 }
 
@@ -118,6 +120,32 @@ export function useIngestJob(jobId: string | null) {
     },
     staleTime: 0,
   });
+}
+
+export function useUnreadCount(): number {
+  const { data } = useNotifications();
+  return (data ?? []).filter((notification) => notification.read_at === null).length;
+}
+
+export function useStartIngest() {
+  const userId = useUserId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { projectId: string; inputType: InputType; file: UploadFile } | { projectId: string; text: string }) =>
+      'text' in input ? api.createTextRequisition(input.projectId, input.text) : api.ingestFile(input.projectId, input.inputType, input.file),
+    onSuccess: (job) => {
+      queryClient.setQueryData(queryKeys.ingestJob(userId, job.id), job);
+    },
+  });
+}
+
+export function useRefreshRequisitionsWhenDone(job: { status: string } | undefined) {
+  const userId = useUserId();
+  const queryClient = useQueryClient();
+  const done = job?.status === 'DONE';
+  useEffect(() => {
+    if (done) void queryClient.invalidateQueries({ queryKey: queryKeys.requisitions(userId), exact: true });
+  }, [done, queryClient, userId]);
 }
 
 function useRequisitionWriter() {

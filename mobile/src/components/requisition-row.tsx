@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { InputType, Requisition, RequisitionStatus } from '@/lib/api/schemas';
+import type { Requisition, RequisitionStatus } from '@/lib/api/schemas';
+import { INPUT_LABEL, relativeTime } from '@/lib/format';
 import { colors, radius, space, type } from '@/theme/tokens';
 
-type Tone = 'decision' | 'waiting' | 'settled' | 'closed';
+export type Tone = 'decision' | 'waiting' | 'settled' | 'closed';
 
-const STATUS: Record<RequisitionStatus, { label: string; tone: Tone }> = {
+export const STATUS: Record<RequisitionStatus, { label: string; tone: Tone }> = {
   DRAFT: { label: 'Reading', tone: 'waiting' },
   PROCESSING: { label: 'Reading', tone: 'waiting' },
   PENDING_CONFIRMATION: { label: 'Needs your confirmation', tone: 'decision' },
@@ -24,17 +25,6 @@ const STATUS: Record<RequisitionStatus, { label: string; tone: Tone }> = {
   CANCELLED: { label: 'Cancelled', tone: 'closed' },
 };
 
-const INPUT_LABEL: Record<InputType, string> = {
-  voice: 'Voice note',
-  image: 'Photo',
-  pdf: 'PDF',
-  csv: 'CSV',
-  xlsx: 'Spreadsheet',
-  docx: 'Document',
-  txt: 'Text file',
-  text: 'Typed text',
-};
-
 export function needsEngineer(status: RequisitionStatus): boolean {
   return STATUS[status].tone === 'decision';
 }
@@ -46,16 +36,6 @@ export function StatusBadge({ status }: { status: RequisitionStatus }) {
       <Text style={[styles.badgeText, badgeTextTone[tone]]}>{label}</Text>
     </View>
   );
-}
-
-function relativeTime(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  const days = Math.round(hours / 24);
-  return `${days} d ago`;
 }
 
 type RowProps = {

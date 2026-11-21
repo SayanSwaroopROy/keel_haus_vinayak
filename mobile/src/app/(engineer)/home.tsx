@@ -2,7 +2,9 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
+import { NotificationBell } from '@/components/notification-bell';
 import { needsEngineer, RequisitionRow } from '@/components/requisition-row';
 import { EmptyState, ErrorState, LoadingState, MockNotice } from '@/components/state-views';
 import { SwitchUserButton } from '@/components/switch-user-button';
@@ -56,6 +58,7 @@ export default function EngineerHome() {
         </View>
         <Icon name="chevron" size={18} color={colors.mutedInk} />
       </Pressable>
+      <Button label="New requisition" icon="add" onPress={() => router.push('/new')} accessibilityHint="Record, photograph, upload or paste a requirement" />
       <MockNotice />
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle} accessibilityRole="header">
@@ -69,7 +72,14 @@ export default function EngineerHome() {
   if (requisitions.isPending) {
     return (
       <View style={styles.screen}>
-        <TopBar right={<SwitchUserButton />} />
+        <TopBar
+          right={
+            <>
+              <NotificationBell />
+              <SwitchUserButton />
+            </>
+          }
+        />
         {header}
         <LoadingState label="Loading your requisitions" />
       </View>
@@ -78,13 +88,24 @@ export default function EngineerHome() {
 
   return (
     <View style={styles.screen}>
-      <TopBar right={<SwitchUserButton />} />
+      <TopBar
+          right={
+            <>
+              <NotificationBell />
+              <SwitchUserButton />
+            </>
+          }
+        />
       <FlatList
         data={rows}
         keyExtractor={(requisition) => requisition.id}
         ListHeaderComponent={header}
         renderItem={({ item }) => (
-          <RequisitionRow requisition={item} projectCode={codeById.get(item.project_id) ?? null} />
+          <RequisitionRow
+            requisition={item}
+            projectCode={codeById.get(item.project_id) ?? null}
+            onPress={() => router.push({ pathname: '/requisition/[id]', params: { id: item.id } })}
+          />
         )}
         ListEmptyComponent={
           requisitions.isError ? (
