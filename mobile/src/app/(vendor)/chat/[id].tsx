@@ -10,12 +10,13 @@ import { TopBar } from '@/components/top-bar';
 import { describeError } from '@/lib/api/errors';
 import { useConversations, useMessages, useRfq, useSendMessage } from '@/lib/api/hooks-vendor';
 import type { Message, RfqItem } from '@/lib/api/schemas-vendor';
+import { resolveFileUrl } from '@/lib/config';
 import { clock, shortDate } from '@/lib/format';
 import { useVoiceNote } from '@/lib/use-voice-note';
 import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
 
 function VoicePlayer({ url }: { url: string }) {
-  const player = useAudioPlayer(url);
+  const player = useAudioPlayer(resolveFileUrl(url));
   const status = useAudioPlayerStatus(player);
 
   function toggle() {

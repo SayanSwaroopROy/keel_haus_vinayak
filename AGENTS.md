@@ -50,6 +50,7 @@ This file overrides the generic hackathon-project-rules skill. The full plan is 
   - One ngrok tunnel on port 3000 serves the HOD web and the mobile API.
   - `EXPO_PUBLIC_API_BASE_URL=https://<ngrok>/api`.
   - The phone's `localhost` is not the laptop.
+- **Final demo host:** the INTEGRATOR's own device runs everything in the final demo: the FastAPI server, the HOD web, the Expo dev server and the ngrok tunnel. Phones run Expo Go and reach the INTEGRATOR's tunnel. Other devs' machines are for development only and are not part of the demo.
 - Real-time uses polling (TanStack Query `refetchInterval` 2–3 s). It is documented as polling, not WebSockets.
 
 ## Ownership
@@ -59,7 +60,7 @@ This file overrides the generic hackathon-project-rules skill. The full plan is 
 | Backend | BACKEND | `api/`, `bruno/` |
 | Mobile app | FRONTEND | `mobile/` |
 | HOD web | FRONTEND (or a 3rd dev) | `web/` (except `next.config.ts` rewrites, owned by SETUP) |
-| Merge, demo | INTEGRATOR | `integration/demo` |
+| Merge, demo (agreed with SETUP) | INTEGRATOR, who also hosts the final demo on their own device | `integration/demo` |
 
 Contracts change only through SETUP/INTEGRATOR, with every dev told. For any shared file, agree on one owner first.
 
@@ -81,6 +82,7 @@ Contracts change only through SETUP/INTEGRATOR, with every dev told. For any sha
   - Swap mocks for the real API. Check env names.
   - Run migrations, tests, typecheck and builds.
   - Test the full journey, including AI calls. Verify the public URL from a second device.
+  - Host the final demo on the INTEGRATOR's own device: run the API, the HOD web, the Expo dev server and the ngrok tunnel there, with the env values set locally (never committed).
   - Keep `docs/LOCAL_DEVELOPMENT.md` exact.
 
 ## Testing
@@ -102,7 +104,8 @@ Rules: no destructive tests on production. Never report skipped, mocked or unexe
 
 ## Demo / ngrok
 - One tunnel: `ngrok http 3000`. Never expose DB or Redis admin.
-- ngrok login is manual.
+- ngrok login is manual, on the INTEGRATOR's device.
+- All demo services (API, web, Expo, tunnel) run on the INTEGRATOR's device. The laptop must stay awake, powered and on a stable network for the whole demo.
 - Verify the Expo QR and API calls from a physical phone.
 
 ## Reporting

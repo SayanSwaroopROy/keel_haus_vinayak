@@ -12,11 +12,20 @@ export type StockLine =
   | { kind: "work"; id: string; description: string }
   | { kind: "unchecked"; id: string; description: string; reason: string };
 
+// Flags the backend sets when a line could not be checked against stock. `unit_converted` is still a checked row.
+const UNCHECKED_REASON: Partial<Record<NonNullable<StockRow["flag"]>, string>> = {
+  missing_quantity_or_unit: "quantity or unit not provided",
+  no_stock_record: "no stock record",
+  unit_mismatch: "unit differs from the stock unit and cannot be converted",
+};
+
 export function stockLines(requisition: Requisition, rows: StockRow[]): StockLine[] {
   return requisition.items.map((item) => {
     if (item.kind === "work") return { kind: "work", id: item.id, description: item.description };
     const row = rows.find((stock) => stock.req_item_id === item.id);
-    if (row) return { kind: "checked", id: item.id, description: item.description, row };
+    const unchecked = row?.flag ? UNCHECKED_REASON[row.flag] : undefined;
+    if (row && !unchecked) return { kind: "checked", id: item.id, description: item.description, row };
+    if (unchecked) return { kind: "unchecked", id: item.id, description: item.description, reason: unchecked };
     const reason = item.quantity === null ? "quantity not provided" : item.uom === null ? "unit not provided" : "no stock record";
     return { kind: "unchecked", id: item.id, description: item.description, reason };
   });
@@ -56,6 +65,11 @@ export function StockPanel({ requisition }: { requisition: Requisition }) {
                     <>
                       <TableCell className="text-right">
                         <Figure value={formatQty(line.row.requested)} unit={line.row.uom} />
+                        {line.row.flag === "unit_converted" && line.row.requested_original ? (
+                          <span className="block text-xs text-muted-foreground">
+                            asked {formatQty(line.row.requested_original.qty)} {line.row.requested_original.uom}, converted
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatQty(line.row.physical)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatQty(line.row.reserved)}</TableCell>

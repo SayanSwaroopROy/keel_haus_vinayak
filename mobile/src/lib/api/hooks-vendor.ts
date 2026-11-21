@@ -1,4 +1,4 @@
-import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useIdentity } from '@/lib/identity';
@@ -6,7 +6,7 @@ import { usePollInterval } from '@/lib/use-poll';
 
 import { api, type UploadFile } from './endpoints';
 import { queryKeys } from './hooks';
-import type { Alternative, AlternativeInput, Conversation, QuotationInput, Rfq, RfqVendor } from './schemas-vendor';
+import type { Alternative, AlternativeInput, AlternativeReplyInput, Conversation, Quotation, QuotationInput, Rfq, RfqVendor, WorkOrder } from './schemas-vendor';
 
 const RFQ_POLL_MS = 10_000;
 const CONVERSATION_POLL_MS = 5_000;
@@ -61,6 +61,44 @@ export function useQuotations(rfqId: string) {
     enabled: userId !== null,
     refetchInterval,
   });
+}
+
+export type MyQuote = { rfq: Rfq; latest: Quotation };
+
+/** Latest quotation round per RFQ, across all of this vendor's RFQs. RFQs not yet quoted are left out. */
+export function useMyQuotes(): { quotes: MyQuote[]; isPending: boolean; error: unknown; refetch: () => void; isFetching: boolean } {
+  const { userId } = useScope();
+  const rfqs = useRfqs();
+  const rfqList = rfqs.data;
+  const refetchInterval = usePollInterval(RFQ_POLL_MS);
+  const results = useQueries({
+    queries: (rfqList ?? []).map((rfq) => ({
+      queryKey: vendorKeys.quotations(userId, rfq.id),
+      queryFn: () => api.listQuotations(rfq.id),
+      enabled: userId !== null,
+      refetchInterval,
+    })),
+  });
+  const quotes = useMemo<MyQuote[]>(() => {
+    const rows: MyQuote[] = [];
+    (rfqList ?? []).forEach((rfq, index) => {
+      const rounds = results[index]?.data ?? [];
+      const latest = rounds.reduce<Quotation | null>((best, round) => (best === null || round.round > best.round ? round : best), null);
+      if (latest) rows.push({ rfq, latest });
+    });
+    return rows;
+  }, [rfqList, results]);
+  const failed = results.find((result) => result.isError);
+  return {
+    quotes,
+    isPending: rfqs.isPending || results.some((result) => result.isPending),
+    error: rfqs.error ?? failed?.error ?? null,
+    refetch: () => {
+      void rfqs.refetch();
+      results.forEach((result) => void result.refetch());
+    },
+    isFetching: rfqs.isFetching || results.some((result) => result.isFetching),
+  };
 }
 
 export function useConversations() {
@@ -152,6 +190,34 @@ export function useProposeAlternative(rfqId: string) {
       queryClient.setQueryData<Alternative[]>(vendorKeys.alternatives(userId, rfqId), (previous) => [...(previous ?? []), alternative]);
       invalidate.rfqs();
       invalidate.conversations();
+    },
+  });
+}
+
+export function useReplyAlternative(rfqId: string) {
+  const { userId } = useScope();
+  const queryClient = useQueryClient();
+  const invalidate = useVendorInvalidation();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: AlternativeReplyInput }) => api.replyAlternative(id, input),
+    onSuccess: (alternative) => {
+      queryClient.setQueryData<Alternative[]>(vendorKeys.alternatives(userId, rfqId), (previous) =>
+        (previous ?? []).map((candidate) => (candidate.id === alternative.id ? alternative : candidate)),
+      );
+      invalidate.rfqs();
+      invalidate.conversations();
+    },
+  });
+}
+
+export function useAcknowledgeWorkOrder(id: string) {
+  const { userId } = useScope();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.acknowledgeWorkOrder(id),
+    onSuccess: (order: WorkOrder) => {
+      queryClient.setQueryData(vendorKeys.workOrder(userId, id), order);
+      void queryClient.invalidateQueries({ queryKey: vendorKeys.workOrders(userId) });
     },
   });
 }

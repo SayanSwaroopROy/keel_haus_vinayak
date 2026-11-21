@@ -2,10 +2,13 @@ import { useLocalSearchParams } from 'expo-router';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/button';
+import { Icon } from '@/components/icon';
 import { ErrorState, LoadingState, MockNotice } from '@/components/state-views';
 import { ToneBadge } from '@/components/tone-badge';
 import { TopBar } from '@/components/top-bar';
-import { useWorkOrder } from '@/lib/api/hooks-vendor';
+import { describeError } from '@/lib/api/errors';
+import { useAcknowledgeWorkOrder, useWorkOrder } from '@/lib/api/hooks-vendor';
 import { figure, shortDate } from '@/lib/format';
 import { rupees, WO_STATUS } from '@/lib/vendor-status';
 import { colors, space, type } from '@/theme/tokens';
@@ -23,6 +26,7 @@ export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const order = useWorkOrder(id);
+  const acknowledge = useAcknowledgeWorkOrder(id);
 
   if (order.isPending) {
     return (
@@ -58,6 +62,25 @@ export default function OrderDetail() {
         </View>
         {data.approved_by ? <Text style={styles.meta}>Approved by {data.approved_by}</Text> : null}
         <MockNotice />
+
+        {data.status === 'SENT' ? (
+          <View style={styles.ack}>
+            <Text style={styles.meta}>Acknowledging tells Vinayak you have received this order and accept its terms.</Text>
+            {acknowledge.isError ? (
+              <View style={styles.problem} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+                <Icon name="warning" size={18} color={colors.binding} />
+                <Text style={styles.problemText}>{describeError(acknowledge.error)}</Text>
+              </View>
+            ) : null}
+            <Button label="Acknowledge order" icon="check" onPress={() => acknowledge.mutate()} loading={acknowledge.isPending} />
+          </View>
+        ) : null}
+        {data.status === 'ACKNOWLEDGED' ? (
+          <View style={styles.done} accessibilityLiveRegion="polite">
+            <Icon name="check" size={18} color={colors.settled} />
+            <Text style={styles.doneText}>You acknowledged this order. Vinayak has been told.</Text>
+          </View>
+        ) : null}
 
         <Text style={styles.sectionTitle} accessibilityRole="header">
           Items
@@ -112,6 +135,11 @@ const styles = StyleSheet.create({
   lineValue: { ...type.body, color: colors.ink, fontVariant: ['tabular-nums'] },
   strong: { color: colors.ink, fontWeight: '600' },
   total: { ...type.figure },
+  ack: { gap: space.sm },
+  problem: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
+  problemText: { ...type.meta, color: colors.binding, flex: 1 },
+  done: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
+  doneText: { ...type.meta, color: colors.mutedInk, flex: 1 },
   term: { flexDirection: 'row', gap: space.sm },
   termIndex: { ...type.body, color: colors.mutedInk, fontVariant: ['tabular-nums'], width: 22 },
   termText: { ...type.body, color: colors.ink, flex: 1 },

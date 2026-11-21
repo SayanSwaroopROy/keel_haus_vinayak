@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { z } from 'zod';
 
 import { apiFetch } from './client';
@@ -32,6 +33,7 @@ import {
   WorkOrderSchema,
   type Alternative,
   type AlternativeInput,
+  type AlternativeReplyInput,
   type Conversation,
   type Message,
   type Quotation,
@@ -42,9 +44,10 @@ import {
 
 export type UploadFile = { uri: string; name: string; mimeType: string };
 
-// React Native's FormData accepts {uri, name, type} for files; the DOM typings do not know it.
+// Expo's fetch rejects React Native's {uri, name, type} parts. It accepts any part with name, type and bytes().
 function appendFile(form: FormData, field: string, file: UploadFile): void {
-  const part = { uri: file.uri, name: file.name, type: file.mimeType };
+  const source = new File(file.uri);
+  const part = { name: file.name, type: file.mimeType, bytes: () => source.bytes() };
   form.append(field, part as unknown as Blob);
 }
 
@@ -178,6 +181,11 @@ export const api = {
     return apiFetch('/alternatives', { method: 'POST', body: input, schema: AlternativeSchema });
   },
 
+  replyAlternative(id: string, input: AlternativeReplyInput): Promise<Alternative> {
+    if (isMocked('alternatives.reply')) return vendorMocks.replyAlternative(id, input);
+    return apiFetch(`/alternatives/${id}/reply`, { method: 'POST', body: input, schema: AlternativeSchema });
+  },
+
   listQuotations(rfqId: string): Promise<Quotation[]> {
     if (isMocked('quotations.list')) return vendorMocks.listQuotations(rfqId);
     return apiFetch(`/rfqs/${rfqId}/quotations`, { schema: z.array(QuotationSchema) });
@@ -191,6 +199,11 @@ export const api = {
   listWorkOrders(): Promise<WorkOrder[]> {
     if (isMocked('workOrders.list')) return vendorMocks.listWorkOrders();
     return apiFetch('/work-orders', { schema: z.array(WorkOrderSchema) });
+  },
+
+  acknowledgeWorkOrder(id: string): Promise<WorkOrder> {
+    if (isMocked('workOrders.acknowledge')) return vendorMocks.acknowledgeWorkOrder(id);
+    return apiFetch(`/work-orders/${id}/acknowledge`, { method: 'POST', body: {}, schema: WorkOrderSchema });
   },
 
   getWorkOrder(id: string): Promise<WorkOrder> {

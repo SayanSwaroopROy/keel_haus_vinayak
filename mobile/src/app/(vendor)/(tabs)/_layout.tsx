@@ -12,6 +12,10 @@ export default function VendorTabs() {
         <NativeTabs.Trigger.Icon sf="doc.text" md="description" />
         <NativeTabs.Trigger.Label>RFQs</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="quotes">
+        <NativeTabs.Trigger.Icon sf="list.bullet.rectangle" md="request_quote" />
+        <NativeTabs.Trigger.Label>My quotes</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="messages">
         <NativeTabs.Trigger.Icon sf="bubble.left" md="chat" />
         <NativeTabs.Trigger.Label>Messages</NativeTabs.Trigger.Label>

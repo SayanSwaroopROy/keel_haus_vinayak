@@ -54,7 +54,9 @@ export function stockRowsFor(requisition: Requisition): StockRow[] {
         reserved,
         available,
         to_procure: Math.max(0, row.quantity - available),
-        is_dummy: true as const,
+        kind: "material" as const,
+        is_dummy: true,
+        flag: stock ? null : ("no_stock_record" as const),
       };
     });
 }

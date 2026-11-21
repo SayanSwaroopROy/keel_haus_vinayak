@@ -111,7 +111,10 @@ export const StockRowSchema = z.object({
   reserved: z.number(),
   available: z.number(),
   to_procure: z.number(),
-  is_dummy: z.literal(true),
+  kind: z.enum(["work", "material"]),
+  is_dummy: z.boolean(),
+  flag: z.enum(["work_item", "missing_quantity_or_unit", "no_stock_record", "unit_mismatch", "unit_converted"]).nullable(),
+  requested_original: z.object({ qty: z.number(), uom: z.string() }).optional(),
 });
 
 export const InventoryRowSchema = z.object({

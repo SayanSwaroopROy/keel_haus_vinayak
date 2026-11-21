@@ -11,7 +11,7 @@ step seed bash -c 'cd api && uv run python scripts/seed.py >/dev/null'  # idempo
 step pytest pnpm -s test:api
 LOG=$(mktemp -t keelhaus-api.XXXXXX)
 if curl -sf localhost:8000/health >/dev/null; then echo "FAIL: port 8000 already in use; stop it first"; exit 1; fi
-(cd api && exec .venv/bin/uvicorn app.main:app --port 8000 >"$LOG" 2>&1) & API=$!
+(cd api && exec uv run uvicorn app.main:app --port 8000 >"$LOG" 2>&1) & API=$!
 trap 'kill $API 2>/dev/null; wait $API 2>/dev/null' EXIT
 for i in $(seq 1 30); do curl -sf localhost:8000/health >/dev/null && break; sleep 1; done
 curl -sf localhost:8000/health >/dev/null || { echo "FAIL: API did not become healthy (log: $LOG)"; exit 1; }

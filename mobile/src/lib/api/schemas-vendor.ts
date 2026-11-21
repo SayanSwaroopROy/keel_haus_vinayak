@@ -20,6 +20,7 @@ export const RfqItemSchema = z.object({
 });
 
 export const RfqVendorStatusSchema = z.enum([
+  'DRAFT',
   'RFQ_SENT',
   'RFQ_VIEWED',
   'VENDOR_RESPONDED',
@@ -30,6 +31,8 @@ export const RfqVendorStatusSchema = z.enum([
   'REVISION_REQUESTED',
   'AWARDED',
   'NOT_AWARDED',
+  'CLOSED',
+  'CANCELLED',
 ]);
 
 export const RfqVendorSchema = z.object({
@@ -183,6 +186,11 @@ export const AlternativeInputSchema = z.object({
   explanation: z.string().trim().min(5, 'Say why this alternative suits the work').max(2000),
 });
 
+export const AlternativeReplyInputSchema = z.object({
+  note: z.string().trim().min(1, 'Write your answer for the HOD').max(2000),
+  proposed_spec: z.string().trim().max(1000).optional(),
+});
+
 export const MessageInputSchema = z.object({ text: z.string().trim().min(1).max(2000), rfq_item_id: id.optional() });
 
 export type RfqItem = z.infer<typeof RfqItemSchema>;
@@ -198,4 +206,5 @@ export type WorkOrder = z.infer<typeof WorkOrderSchema>;
 export type WorkOrderStatus = z.infer<typeof WorkOrderStatusSchema>;
 export type QuotationInput = z.infer<typeof QuotationInputSchema>;
 export type AlternativeInput = z.infer<typeof AlternativeInputSchema>;
+export type AlternativeReplyInput = z.infer<typeof AlternativeReplyInputSchema>;
 export type MessageInput = z.infer<typeof MessageInputSchema>;

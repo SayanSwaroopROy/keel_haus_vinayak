@@ -62,6 +62,7 @@ Next.js HOD dashboard :3000 ──rewrite /api→┘          ├─ OpenRouter:
                                                        ├─ Sarvam: STT (hi/bn/en) and TTS (read-back)
                                                        └─ Local file store api/storage/ (gitignored)
 ```
+- Final demo hosting: everything (FastAPI, Next web, Expo dev server, ngrok) runs on the INTEGRATOR's own device; phones run Expo Go and reach that tunnel.
 - One ngrok tunnel on web:3000. Next `rewrites` proxy `/api/*` to FastAPI, so the phone uses `https://<ngrok>/api` and the HOD uses the same origin. No CORS needed for web.
 - **Real-time** uses TanStack Query `refetchInterval` (2–3 s) on chat, notifications and quote lists. That covers "no manual refresh".
   - `ponytail:` polling. Upgrade to SSE (`/events`) only if latency matters.

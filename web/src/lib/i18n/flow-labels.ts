@@ -20,6 +20,7 @@ export const WO_STATUS_LABELS: Record<WorkOrderStatus, Trilingual> = {
 };
 
 export const RFQ_VENDOR_STATUS: Record<RfqVendorStatus, { label: string; tone: "waiting" | "settled" | "decision" | "plain" | "void" }> = {
+  DRAFT: { label: "Not sent yet", tone: "plain" },
   RFQ_SENT: { label: "Not opened yet", tone: "plain" },
   RFQ_VIEWED: { label: "Opened", tone: "plain" },
   VENDOR_RESPONDED: { label: "Replied", tone: "plain" },
@@ -30,6 +31,8 @@ export const RFQ_VENDOR_STATUS: Record<RfqVendorStatus, { label: string; tone: "
   REVISION_REQUESTED: { label: "Revision requested", tone: "waiting" },
   AWARDED: { label: "Selected", tone: "settled" },
   NOT_AWARDED: { label: "Not selected", tone: "void" },
+  CLOSED: { label: "Closed", tone: "void" },
+  CANCELLED: { label: "Cancelled", tone: "void" },
 };
 
 /** Plain-language reading of each quotation flag, for the HOD. */

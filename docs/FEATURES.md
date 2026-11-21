@@ -26,10 +26,10 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 - [x] `INT` AGENTS.md (hybrid EXPO + WEB operating contract)
 - [x] `INT` `docs/API_CONTRACT.md`, `DATABASE_SCHEMA.md`, `EVENT_CONTRACT.md`, `ARCHITECTURE.md`, `LOCAL_DEVELOPMENT.md`
 - [x] `INT` Repo scaffold: `api/`, `mobile/`, `web/`, `bruno/`
-- [ ] `INT` `web/next.config.ts` rewrites `/api/*` to FastAPI
-- [ ] `INT` Root scripts: `dev:api`, `dev:web`, `dev:mobile`, `test:api`, `test:bruno`, `typecheck`, `lint`, `test:all`
-- [ ] `INT` `.env.example` complete (Sarvam, OpenRouter, DB URLs). No Resend, `RFQ_TEST_INBOX` or JWT secret.
-- [ ] `INT` Provider connectivity check (`api/scripts/check_connectivity.py`) passes for DB, Sarvam, OpenRouter
+- [x] `INT` `web/next.config.ts` rewrites `/api/*` to FastAPI
+- [x] `INT` Root scripts: `dev:api`, `dev:web`, `dev:mobile`, `test:api`, `test:bruno`, `typecheck`, `lint`, `test:all`
+- [x] `INT` `.env.example` complete (Sarvam, OpenRouter, DB URLs). No Resend, `RFQ_TEST_INBOX` or JWT secret.
+- [x] `INT` Provider connectivity check (`api/scripts/check_connectivity.py`) passes for DB, Sarvam, OpenRouter
 
 ## Phase 1: Backend core (BE)
 
@@ -97,8 +97,8 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ## Phase 3: Mobile, Site Engineer (MOB)
 
-- [ ] `FE-MOB` Remove Expo template screens; routing with expo-router groups `(auth)`, `(engineer)`, `(vendor)`
-- [ ] `FE-MOB` API service layer (`src/lib/api.ts`) reading only `EXPO_PUBLIC_API_BASE_URL`; zod schemas mirroring contract
+- [x] `FE-MOB` Remove Expo template screens; routing with expo-router groups `(auth)`, `(engineer)`, `(vendor)`
+- [x] `FE-MOB` API service layer (`src/lib/api/client.ts`) reading only `EXPO_PUBLIC_API_BASE_URL`; zod schemas mirroring contract
 - [ ] `FE-MOB` Identity: role picker (engineer / vendor + vendor / HOD) from `GET /users`, store the chosen user id, send `X-User-Id`, switch user. No login, password or token.
 - [ ] `FE-MOB` Project picker
 - [ ] `FE-MOB` New requisition: record voice note (expo-audio)
@@ -117,7 +117,7 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ## Phase 4: HOD web core (WEB)
 
-- [ ] `FE-WEB` Next.js 16 app, shadcn/ui, TanStack Query, zod; read `web/AGENTS.md` first
+- [x] `FE-WEB` Next.js 16 app, shadcn/ui, TanStack Query, zod; read `web/AGENTS.md` first
 - [ ] `FE-WEB` HOD identity picker (no login); `X-User-Id` sent on every call
 - [ ] `FE-WEB` Layout: sidebar, notification bell, responsive
 - [ ] `FE-WEB` Dashboard: stats cards from `GET /dashboard/stats` (5 s poll)
@@ -225,27 +225,27 @@ Phases follow `docs/ARCHITECTURE.md` section M. Critical path: 1 → 2 → 6.
 
 ### Vendor app (MOB)
 
-- [ ] `FE-MOB` Quotation form (items, rates, GST, freight, payment terms, validity, start days, warranty)
-- [ ] `FE-MOB` My quotations and status, with rounds; "revision requested" prompt and resubmit through the same form
-- [ ] `FE-MOB` Work orders list and detail, acknowledge
+- [~] `FE-MOB` Quotation form (items, rates, GST, freight, payment terms, validity, start days, warranty)
+- [~] `FE-MOB` My quotations and status, with rounds; "revision requested" prompt and resubmit through the same form
+- [~] `FE-MOB` Work orders list and detail, acknowledge
 
 ### HOD web (WEB)
 
-- [ ] `FE-WEB` Quotation list per RFQ with flags, edit and verify
-- [ ] `FE-WEB` Enter a quotation on behalf of a vendor (same form)
-- [ ] `FE-WEB` Request revision from a vendor (with note)
-- [ ] `FE-WEB` Comparative Statement table (Vinayak format) with quote rounds, line-item comparison of quality (performance) vs price, + charts (recharts)
-- [ ] `FE-WEB` Weight sliders, recompute
-- [ ] `FE-WEB` Recommendation with reasoning; per-line-item vendor selection with note
-- [ ] `FE-WEB` Vendor registration checklist (tick items); shows registered or not
-- [ ] `FE-WEB` Create WO(s) after selection (blocked until checklist complete), WO view / print, Submit for approval
-- [ ] `FE-WEB` Management view (identity picker `management`): WO list, WO detail, Approve / Reject with note
-- [ ] `FE-WEB` Vendor feedback capture after completion (real performance rows)
+- [~] `FE-WEB` Quotation list per RFQ with flags, edit and verify
+- [~] `FE-WEB` Enter a quotation on behalf of a vendor (same form)
+- [~] `FE-WEB` Request revision from a vendor (with note)
+- [~] `FE-WEB` Comparative Statement table (Vinayak format) with quote rounds, line-item comparison of quality (performance) vs price, + charts (recharts)
+- [~] `FE-WEB` Weight sliders, recompute
+- [~] `FE-WEB` Recommendation with reasoning; per-line-item vendor selection with note
+- [~] `FE-WEB` Vendor registration checklist (tick items); shows registered or not
+- [~] `FE-WEB` Create WO(s) after selection (blocked until checklist complete), WO view / print, Submit for approval
+- [~] `FE-WEB` Management view (identity picker `management`): WO list, WO detail, Approve / Reject with note
+- [~] `FE-WEB` Vendor feedback capture after completion (real performance rows)
 
 ## Phase 7: Integration and demo (INT)
 
 - [ ] `INT` Swap mocks for real API in mobile and web
-- [ ] `INT` Single ngrok tunnel on port 3000; verify from a physical phone and a second device
+- [ ] `INT` Single ngrok tunnel on port 3000, run from the INTEGRATOR's own device (API, web, Expo and tunnel all hosted there); verify from a physical phone and a second device
 - [ ] `INT` Expo Go QR flow documented
 - [ ] `INT` End-to-end demo script (ARCHITECTURE section N, steps 1–8)
 - [ ] `INT` Golden seed states per demo step

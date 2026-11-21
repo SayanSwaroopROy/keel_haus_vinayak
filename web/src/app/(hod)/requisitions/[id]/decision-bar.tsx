@@ -18,7 +18,9 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useDecision } from "@/lib/api/hooks";
+import { useCancelRequisition } from "@/lib/api/hooks-flow";
 import { describeError } from "@/lib/api/errors";
 import { DecisionInputSchema, type DecisionAction, type Requisition } from "@/lib/api/schemas";
 import { useSession } from "@/lib/auth/session";
@@ -48,6 +50,8 @@ const COPY: Record<DecisionAction, { title: string; body: string; placeholder: s
   },
 };
 
+const NOT_CANCELLABLE: ReadonlySet<Requisition["status"]> = new Set(["WO_GENERATED", "ORDER_PLACED", "COMPLETED", "CANCELLED", "REJECTED"]);
+
 export function DecisionBar({ requisition, blockers }: { requisition: Requisition; blockers: Blocker[] }) {
   const [action, setAction] = useState<DecisionAction | null>(null);
   const [note, setNote] = useState("");
@@ -56,6 +60,8 @@ export function DecisionBar({ requisition, blockers }: { requisition: Requisitio
   const record = useDecisionLog((state) => state.record);
   const userName = useSession((state) => state.user?.name ?? "HOD");
   const role = useSession((state) => state.user?.role);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const cancel = useCancelRequisition();
   const open = requisition.status === "PENDING_APPROVAL";
   const unsure = blockers.find((blocker) => blocker.kind === "unsure");
 
@@ -92,11 +98,38 @@ export function DecisionBar({ requisition, blockers }: { requisition: Requisitio
 
   if (!open) {
     return (
-      <p className="text-sm text-muted-foreground">
-        {requisition.status === "PENDING_CONFIRMATION"
-          ? "Waiting for the site engineer to confirm the read-back. You can decide once they do."
-          : `${STATUS_LABELS[requisition.status].en}. No decision is pending.`}
-      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-muted-foreground">
+          {requisition.status === "PENDING_CONFIRMATION"
+            ? "Waiting for the site engineer to confirm the read-back. You can decide once they do."
+            : `${STATUS_LABELS[requisition.status].en}. No decision is pending.`}
+        </p>
+        {NOT_CANCELLABLE.has(requisition.status) ? null : (
+          <>
+            <Button size="sm" variant="ghost" className="text-binding hover:bg-accent hover:text-binding" onClick={() => setCancelOpen(true)}>
+              <XIcon data-icon="inline-start" />
+              Cancel requisition
+            </Button>
+            <ConfirmDialog
+              open={cancelOpen}
+              onOpenChange={setCancelOpen}
+              title="Cancel this requisition"
+              description={`${reqNumber(requisition.id)} is closed. Reserved stock is released and any open RFQ is closed. This cannot be undone.`}
+              confirmLabel="Cancel requisition"
+              pending={cancel.isPending}
+              error={cancel.error}
+              onConfirm={() =>
+                cancel.mutate(requisition.id, {
+                  onSuccess: () => {
+                    setCancelOpen(false);
+                    toast.add({ title: `${reqNumber(requisition.id)} cancelled`, type: "success" });
+                  },
+                })
+              }
+            />
+          </>
+        )}
+      </div>
     );
   }
 

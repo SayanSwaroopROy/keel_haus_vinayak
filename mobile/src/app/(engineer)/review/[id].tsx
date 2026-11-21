@@ -20,6 +20,7 @@ import {
 import { describeError } from '@/lib/api/errors';
 import type { ReqItem, Uom } from '@/lib/api/schemas';
 import { CorrectionInputSchema, UomSchema } from '@/lib/api/schemas';
+import { resolveFileUrl } from '@/lib/config';
 import { clock, LANG_LABEL } from '@/lib/format';
 import { useVoiceNote, type VoiceNote } from '@/lib/use-voice-note';
 import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
@@ -27,7 +28,7 @@ import { colors, radius, space, TAP_TARGET, type } from '@/theme/tokens';
 // ---------- readback ----------
 
 function ReadbackAudio({ url }: { url: string }) {
-  const player = useAudioPlayer(url);
+  const player = useAudioPlayer(resolveFileUrl(url));
   const status = useAudioPlayerStatus(player);
 
   function toggle() {

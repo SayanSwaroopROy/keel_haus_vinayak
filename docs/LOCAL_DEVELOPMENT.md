@@ -1,5 +1,7 @@
 # Local Development (HYBRID: Expo app + Next.js HOD web + FastAPI)
 
+**Final demo host:** the INTEGRATOR's own device runs the API, the HOD web, the Expo dev server and the ngrok tunnel for the final demo (agreed with SETUP). Phones only run Expo Go. Other devs run these services locally for development, not for the demo.
+
 **Prereqs:**
 - Node per `.nvmrc`, pnpm, uv.
 - ngrok, logged in manually: `ngrok config add-authtoken …`.
@@ -20,6 +22,11 @@
 3. Scan the QR code in Expo Go.
 
 The phone's `localhost` is not the laptop.
+
+Windows notes:
+- Port 8081 can fall in a Windows reserved range (8055-8154). Start Expo on another port: `cd mobile && npx expo start -c --port 8156`.
+- A free ngrok URL changes on every restart. Update `EXPO_PUBLIC_API_BASE_URL` and restart Expo with `-c` each time.
+- File uploads need `expo-file-system` (Expo's fetch rejects `{uri, name, type}` form parts).
 
 ## Backend steps (run from `api/`)
 1. Install: `uv sync`.
