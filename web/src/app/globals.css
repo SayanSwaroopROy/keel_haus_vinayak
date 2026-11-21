@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-roboto), var(--font-bengali), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-roboto-mono), ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -39,6 +39,18 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-binding: var(--binding);
+  --color-binding-deep: var(--binding-deep);
+  --color-binding-foreground: var(--binding-foreground);
+  --color-binding-muted: var(--binding-muted);
+  --color-thread: var(--thread);
+  --color-unsure: var(--unsure);
+  --color-unsure-soft: var(--unsure-soft);
+  --color-unsure-foreground: var(--unsure-foreground);
+  --color-settled: var(--settled);
+  --color-settled-soft: var(--settled-soft);
+  --color-rule: var(--rule);
+  --color-ledger: var(--ledger);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,83 +60,436 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Haal Khata: Vinayak crimson binding on white ledger stock, charcoal ink.
+ * Crimson is reserved for brand and "your decision now". Light only: the
+ * HOD works under office light and in daylight on a phone.
+ */
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.25 0.008 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.25 0.008 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  --popover-foreground: oklch(0.25 0.008 260);
+  --primary: oklch(0.55 0.21 26);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.965 0.005 60);
+  --secondary-foreground: oklch(0.25 0.008 260);
+  --muted: oklch(0.965 0.005 60);
+  --muted-foreground: oklch(0.47 0.012 50);
+  --accent: oklch(0.955 0.012 30);
+  --accent-foreground: oklch(0.3 0.06 26);
+  --destructive: oklch(0.5 0.2 26);
+  --border: oklch(0.9 0.008 60);
+  --input: oklch(0.86 0.01 60);
+  --ring: oklch(0.55 0.21 26 / 55%);
+  --chart-1: oklch(0.55 0.21 26);
+  --chart-2: oklch(0.7 0.14 75);
+  --chart-3: oklch(0.52 0.11 155);
+  --chart-4: oklch(0.45 0.02 260);
+  --chart-5: oklch(0.75 0.02 60);
+  --radius: 0.375rem;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --binding: oklch(0.55 0.21 26);
+  --binding-deep: oklch(0.38 0.15 24);
+  --binding-foreground: oklch(0.99 0.005 30);
+  --binding-muted: oklch(0.88 0.05 25);
+  --thread: oklch(0.55 0.21 26);
+  --unsure: oklch(0.62 0.15 70);
+  --unsure-soft: oklch(0.96 0.045 85);
+  --unsure-foreground: oklch(0.42 0.1 60);
+  --settled: oklch(0.48 0.11 155);
+  --settled-soft: oklch(0.96 0.03 155);
+  --rule: oklch(0.92 0.008 60);
+  --ledger: oklch(0.985 0.003 60);
+
+  --sidebar: var(--binding);
+  --sidebar-foreground: var(--binding-foreground);
+  --sidebar-primary: oklch(1 0 0);
+  --sidebar-primary-foreground: var(--binding-deep);
+  --sidebar-accent: var(--binding-deep);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.47 0.18 25);
+  --sidebar-ring: oklch(1 0 0 / 70%);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    scrollbar-color: var(--input) transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+  ::selection {
+    background: var(--binding-muted);
+    color: var(--binding-deep);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  input,
+  textarea {
+    caret-color: var(--binding);
+  }
+}
+
+@layer utilities {
+  .num {
+    font-variant-numeric: tabular-nums lining-nums;
+    text-align: right;
+  }
+}
+
+@keyframes seal-stamp {
+  from {
+    transform: scale(1.18) rotate(-8deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(-8deg);
+    opacity: 1;
+  }
+}
+
+.seal-stamp {
+  animation: seal-stamp 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-stamp {
+    animation: none;
+  }
+}
+
+/*
+ * Opening the khata (first load) and the role handover (after picking an identity).
+ * The crimson cover is the ledger's binding: it always hinges on the left, like the shell's rail.
+ */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-cover: cubic-bezier(0.72, 0, 0.18, 1);
+}
+
+.khata-rules {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 39px,
+    oklch(0.99 0.005 30 / 0.09) 39px,
+    oklch(0.99 0.005 30 / 0.09) 40px
+  );
+  clip-path: inset(0 100% 0 0);
+  animation: khata-rules-draw 900ms var(--ease-out-expo) 260ms both;
+}
+
+.khata-rules-static {
+  clip-path: none;
+  animation: none;
+}
+
+@keyframes khata-rules-draw {
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.khata-margin {
+  transform-origin: top;
+  animation: khata-drop 700ms var(--ease-out-expo) 120ms both;
+}
+
+.khata-thread {
+  transform-origin: top;
+  animation: khata-drop 560ms var(--ease-out-expo) both;
+}
+
+@keyframes khata-drop {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.khata-knot {
+  animation: khata-knot 360ms var(--ease-out-expo) 440ms both;
+}
+
+@keyframes khata-knot {
+  from {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.35);
+  }
+}
+
+.khata-letter {
+  animation: khata-ink 520ms var(--ease-out-expo) both;
+}
+
+@keyframes khata-ink {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(0.18em);
+  }
+}
+
+.khata-sub {
+  animation: khata-track 900ms var(--ease-out-expo) 820ms both;
+}
+
+@keyframes khata-track {
+  from {
+    opacity: 0;
+    letter-spacing: 0.7em;
+  }
+}
+
+.khata-script {
+  animation: khata-fade 600ms var(--ease-out-expo) 1080ms both;
+}
+
+.khata-progress {
+  animation: khata-fade 400ms var(--ease-out-expo) 1200ms both;
+}
+
+@keyframes khata-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.khata-progress-run {
+  animation: khata-run 1100ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes khata-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+/* The cover swings open to the left. */
+.opening-splash[data-phase="leaving"] {
+  pointer-events: none;
+  animation: khata-cover-open 640ms var(--ease-cover) both;
+}
+
+.opening-splash[data-phase="leaving"] .khata-content {
+  animation: khata-content-out 360ms var(--ease-cover) both;
+}
+
+@keyframes khata-cover-open {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@keyframes khata-content-out {
+  to {
+    opacity: 0;
+    transform: translateX(-3%);
+  }
+}
+
+/* Role handover: close over the picker, stamp the seal, fold back into the binding rail. */
+.role-handover {
+  animation: khata-cover-close 440ms var(--ease-cover) both;
+}
+
+@keyframes khata-cover-close {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.handover-seal {
+  animation: seal-stamp 460ms var(--ease-out-expo) 360ms both;
+}
+
+.handover-seal::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1px solid var(--binding-foreground);
+  opacity: 0;
+  animation: seal-ink-spread 760ms var(--ease-out-expo) 640ms both;
+}
+
+@keyframes seal-ink-spread {
+  from {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+.handover-caption {
+  animation: khata-fade 500ms var(--ease-out-expo) 620ms both;
+}
+
+.role-handover[data-phase="opening"] {
+  pointer-events: none;
+  animation: khata-fold-bar 620ms var(--ease-cover) both;
+}
+
+.role-handover[data-phase="opening"] .handover-content {
+  animation: khata-content-out 200ms var(--ease-cover) both;
+}
+
+@keyframes khata-fold-bar {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  80% {
+    clip-path: inset(0 0 calc(100% - 3.5rem) 0);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 0 calc(100% - 3.5rem) 0);
+    opacity: 0;
+  }
+}
+
+@keyframes khata-fold-rail {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  80% {
+    clip-path: inset(0 calc(100% - 16rem) 0 0);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 calc(100% - 16rem) 0 0);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 64rem) {
+  .role-handover[data-phase="opening"] {
+    animation-name: khata-fold-rail;
+  }
+}
+
+/* Route transition: same cover, shorter. A link click closes it first; other navigations show it at once. */
+.route-cover[data-mode="link"][data-phase="closing"] {
+  animation: khata-cover-close 300ms var(--ease-cover) both;
+}
+
+.route-cover[data-phase="opening"] {
+  pointer-events: none;
+  animation: khata-cover-open 520ms var(--ease-cover) both;
+}
+
+.route-cover[data-phase="opening"] .route-content {
+  animation: khata-content-out 260ms var(--ease-cover) both;
+}
+
+.route-thread {
+  transform-origin: top;
+  animation: khata-drop 380ms var(--ease-out-expo) 60ms both;
+}
+
+.route-knot {
+  animation: khata-knot 300ms var(--ease-out-expo) 240ms both;
+}
+
+.route-text {
+  animation: khata-fade 320ms var(--ease-out-expo) 200ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-thread,
+  .route-knot,
+  .route-text {
+    animation: none;
+  }
+
+  .route-cover[data-mode="link"][data-phase="closing"] {
+    animation: khata-fade 120ms linear both;
+  }
+
+  .route-cover[data-phase="opening"] {
+    animation: khata-fade-out 180ms linear both;
+  }
+
+  .route-cover[data-phase="opening"] .route-content {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .khata-rules,
+  .khata-margin,
+  .khata-thread,
+  .khata-knot,
+  .khata-letter,
+  .khata-sub,
+  .khata-script,
+  .khata-progress,
+  .handover-seal,
+  .handover-seal::after,
+  .handover-caption {
+    animation: none;
+  }
+
+  .khata-rules {
+    clip-path: none;
+  }
+
+  .khata-progress-run {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+
+  .role-handover {
+    animation: khata-fade 160ms linear both;
+  }
+
+  .opening-splash[data-phase="leaving"],
+  .role-handover[data-phase="opening"] {
+    animation: khata-fade-out 220ms linear both;
+  }
+
+  .opening-splash[data-phase="leaving"] .khata-content,
+  .role-handover[data-phase="opening"] .handover-content {
+    animation: none;
+  }
+}
+
+@keyframes khata-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Work Order print view: the app chrome never prints. */
+@media print {
+  [data-app-chrome] {
+    display: none !important;
   }
 }
