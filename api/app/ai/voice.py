@@ -21,17 +21,29 @@ STT_LIMIT_S = 30
 CHUNK_S = 25
 
 
+# ffmpeg input demuxer per upload type. The format is pinned (no auto probe), so a crafted file cannot be read as a
+# playlist or concat script that pulls in other files or network addresses.
+DEMUXER = {".wav": "wav", ".mp3": "mp3", ".m4a": "mov", ".mp4": "mov", ".aac": "aac", ".ogg": "ogg",
+           ".webm": "matroska", ".flac": "flac", ".caf": "caf"}
+
+
+def ffmpeg_cmd(src: Path, out: Path, demuxer: str) -> list[str]:
+    return ["ffmpeg", "-nostdin", "-v", "error", "-protocol_whitelist", "file", "-f", demuxer, "-i", str(src),
+            "-vn", "-sn", "-dn", "-ac", "1", "-ar", "16000", "-f", "segment", "-segment_time", str(CHUNK_S), str(out)]
+
+
 def split_audio(data: bytes, suffix: str) -> list[tuple[bytes, str]]:
     """Return [(bytes, mime)] pieces of at most CHUNK_S seconds. Needs ffmpeg; without it the audio is passed through."""
+    demuxer = DEMUXER.get(suffix.lower())
+    if not demuxer:
+        raise ApiError(415, "unsupported_file", "This audio type is not accepted")
     if not shutil.which("ffmpeg"):
         return [(data, "application/octet-stream")]
     with tempfile.TemporaryDirectory() as d:
-        src = Path(d) / f"in{suffix or '.bin'}"
+        src = Path(d) / f"in{suffix.lower()}"
         src.write_bytes(data)
         out = Path(d) / "part_%03d.wav"
-        r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(src), "-ac", "1", "-ar", "16000", "-f", "segment",
-                            "-segment_time", str(CHUNK_S), str(out)],
-                           check=False, capture_output=True, timeout=120)
+        r = subprocess.run(ffmpeg_cmd(src, out, demuxer), check=False, capture_output=True, timeout=120)
         parts = sorted(Path(d).glob("part_*.wav"))
         if r.returncode != 0 or not parts:
             raise ApiError(422, "validation_error", "The audio file could not be read")
