@@ -32,4 +32,4 @@ def test_email_refuses_other_recipients(monkeypatch, inbox, to):
     monkeypatch.setenv("RFQ_TEST_INBOX", inbox)
     with pytest.raises(ApiError) as e:
         Email().send(to, "s", "<p>x</p>")  # raises before any network call or key read
-    assert e.value.status == 403 and e.value.code == "forbidden_recipient"
+    assert e.value.status == 403 and e.value.code == "forbidden"

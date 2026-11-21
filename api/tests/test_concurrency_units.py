@@ -76,7 +76,12 @@ def test_incompatible_units_never_converted(a, b):
 
 @pytest.mark.parametrize("u", ["RMT", "NOS", "BAG", "KG", "MT", "LTR"])
 def test_canon_uom_keeps_unit_identity(u):
-    assert canon_uom(u.lower()) == u  # synonym mapping only, never to another unit
+    assert canon_uom(u.lower()) == (None if u == "MT" else u)  # free-text "mt" is ambiguous (never guess); else synonym mapping only, never to another unit
+
+
+def test_free_text_mt_is_ambiguous_but_explicit_mt_is_accepted():
+    assert canon_uom("mt") is None and canon_uom("mt", explicit=True) is None  # only the exact canonical "MT" is explicit
+    assert canon_uom("MT", explicit=True) == "MT"
 
 
 def test_unknown_or_missing_unit_is_mismatch():

@@ -26,6 +26,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:8000")
     ap.add_argument("--audio", help="optional voice note; used instead of the text paste")
+    ap.add_argument("--text", default=TEXT, help="requisition text to ingest (default: built-in sample)")
     a = ap.parse_args()
     c = httpx.Client(base_url=a.base, timeout=150)
     ctx: dict = {}
@@ -62,8 +63,10 @@ def main() -> int:
             with open(a.audio, "rb") as f:
                 job = call("eng", "POST", "/ingest", files={"file": (a.audio, f)}, data={"project_id": pid})
         else:
-            job = call("eng", "POST", "/requisitions", json={"project_id": pid, "text": TEXT})
+            job = call("eng", "POST", "/requisitions", json={"project_id": pid, "text": a.text})
         ctx["rid"] = wait_job(job)
+        for it in call("eng", "GET", f"/requisitions/{ctx['rid']}")["items"]:
+            print(f"      AI item: {it['description']!r} qty={it['quantity']} uom={it['uom']} flags={it['uncertain_fields']} q={it.get('clarification_question')!r}")
 
     def confirm():
         req = call("eng", "GET", f"/requisitions/{ctx['rid']}")
@@ -132,6 +135,7 @@ def main() -> int:
         ev = call("hod", "POST", f"/rfqs/{ctx['rfq']['id']}/evaluation", json={})
         ctx["ev"] = ev
         print(f"      (recommended: {(ev['recommendation'] or {}).get('vendor_id')})")
+        print(f"      AI recommendation: {ev['recommendation']}")
         call("hod", "POST", f"/evaluations/{ev['id']}/select",
              json={"selections": [{"rfq_item_id": i["id"], "vendor_id": ctx["me"]["va"]["vendor_id"]}
                                   for i in ctx["rfq"]["items"]], "note": "Demo pick: valid offer, not just cheapest"})

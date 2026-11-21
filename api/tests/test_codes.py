@@ -62,6 +62,8 @@ async def test_only_the_hod_sets_the_final_code(client, world, fakes, erp):
     eng, req = await make_req(client, world, fakes, [h.item("Cement", 10, "bags")])
     hod = await login(client, world["hod"], world["pw"])
     url = f"/requisitions/{req['id']}/items/{req['items'][0]['id']}/code"
+    assert (await client.post(url, headers=hod, json={"item_code": "TEST.01"})).status_code == 409  # contract: only in PENDING_APPROVAL
+    assert (await client.post(f"/requisitions/{req['id']}/confirm", headers=eng, json={})).status_code == 200
     assert (await client.post(url, headers=eng, json={"item_code": "TEST.01"})).status_code == 403
     r = await client.post(url, headers=hod, json={"item_code": "TEST.01"})
     assert r.status_code == 200 and r.json()["item_code"] == "TEST.01"

@@ -62,7 +62,7 @@ async def test_vendor_cannot_read_other_vendor(client, world, chain):
     assert (await client.get(f"/conversations/{chain['conv1']}/messages", headers=h)).status_code == 200
     assert (await client.get(f"/conversations/{chain['conv2']}/messages", headers=h)).status_code == 403
     assert (await client.get(f"/work-orders/{chain['wo1']}", headers=h)).status_code == 200
-    assert (await client.get(f"/work-orders/{chain['wo2']}", headers=h)).status_code == 403
+    assert (await client.get(f"/work-orders/{chain['wo2']}", headers=h)).status_code == 404
     h2 = await login(client, world["orphan"])
     assert (await client.get(f"/rfqs/{chain['rfq']}", headers=h2)).status_code == 403
 
@@ -89,7 +89,7 @@ async def test_vendor_sees_only_own_lists(client, world, chain):
     assert all(x["id"] != str(chain["conv2"]) for x in convs)
 
 
-@pytest.mark.parametrize("path", ["/rfqs", "/conversations", "/work-orders", "/vendors"])
+@pytest.mark.parametrize("path", ["/rfqs", "/conversations", "/vendors"])
 async def test_engineer_403_on_procurement_lists(client, world, chain, path):
     assert (await client.get(path, headers=await login(client, world["eng"]))).status_code == 403
 

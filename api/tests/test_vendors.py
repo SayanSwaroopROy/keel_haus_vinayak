@@ -1,12 +1,13 @@
 """Section 7: vendor master data, block/unblock, performance aggregate, defaults. Real dev DB, rows prefixed test_."""
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import delete, select
 
 from app.db import SessionLocal
-from app.models import AuditLog, Vendor, VendorPerformance
+from app.models import AuditLog, Requisition, Rfq, Vendor, VendorPerformance, WorkOrder
 from app.routes import vendors as V
 from tests.conftest import login
 
@@ -19,6 +20,8 @@ async def hod(client, world):
     with SessionLocal() as db:
         made = list(db.scalars(select(Vendor.id).where(Vendor.name.like("test\\_vend\\_%"))))  # only this file's vendors
         ids = made + mine
+        db.execute(delete(WorkOrder).where(WorkOrder.wo_number.like("test\\_vend\\_wo\\_%")))
+        db.execute(delete(Rfq).where(Rfq.category == "test_vend_cat"))
         db.execute(delete(VendorPerformance).where(VendorPerformance.vendor_id.in_(ids)))
         db.execute(delete(AuditLog).where(AuditLog.entity == "vendor", AuditLog.entity_id.in_(ids)))
         db.execute(delete(Vendor).where(Vendor.id.in_(made)))
@@ -27,6 +30,21 @@ async def hod(client, world):
 
 def name():
     return f"test_vend_{uuid.uuid4().hex[:8]}"
+
+
+def complete_wo(world, vendor_id):
+    """A COMPLETED work order for the vendor on the world project: the documented gate for rating."""
+    ids = world["ids"]
+    with SessionLocal() as db:
+        req = Requisition(project_id=ids["proj"], raised_by=ids["eng"], input_type="text", status="RFQ_FLOATED")
+        db.add(req)
+        db.flush()
+        rfq = Rfq(requisition_id=req.id, category="test_vend_cat", status="SENT", due_date=datetime.now(UTC))
+        db.add(rfq)
+        db.flush()
+        db.add(WorkOrder(wo_number=f"test_vend_wo_{uuid.uuid4().hex[:8]}", requisition_id=req.id, rfq_id=rfq.id,
+                         vendor_id=uuid.UUID(str(vendor_id)), items=[], subtotal=1, gst=0, total=1, status="COMPLETED"))
+        db.commit()
 
 
 async def mk(client, hod, **kw):
@@ -106,6 +124,8 @@ async def test_performance_validation(client, world, hod):
         assert (await client.post(url, headers=hod, json=bad)).status_code == 422
     assert (await client.post(url, headers=hod, json={**ok, "project_id": str(uuid.uuid4())})).status_code == 422
     assert (await client.post(f"/vendors/{uuid.uuid4()}/performance", headers=hod, json=ok)).status_code == 404
+    assert (await client.post(url, headers=hod, json=ok)).status_code == 409  # no COMPLETED WO yet
+    complete_wo(world, a["id"])
     r = await client.post(url, headers=hod, json={**ok, "note": "late once"})
     assert r.status_code == 201 and r.json()["is_dummy"] is False and r.json()["note"] == "late once"
 
@@ -123,6 +143,7 @@ async def test_performance_aggregate_real_replaces_dummy(client, world, hod):
         db.commit()
     assert await perf_of(client, hod, a["id"]) == {"quality": 5.0, "delivery": 5.0, "disputes": 1.0, "n": 1,
                                                   "is_dummy": True}
+    complete_wo(world, a["id"])
     for q in (2, 3):
         await client.post(f"/vendors/{a['id']}/performance", headers=hod,
                           json={"project_id": str(pid), "quality": q, "delivery": 4, "disputes": 2})
