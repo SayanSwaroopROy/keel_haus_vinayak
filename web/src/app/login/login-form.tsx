@@ -1,13 +1,11 @@
 "use client";
 
 import { ChevronRightIcon, ClipboardSignatureIcon, ScrollTextIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { QueryState } from "@/components/ledger";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUsers } from "@/lib/api/hooks-flow";
 import type { User } from "@/lib/api/schemas";
-import { useSession } from "@/lib/auth/session";
+import { useHandover } from "@/lib/motion/handover";
 
 const WEB_ROLES = new Set<User["role"]>(["hod", "management"]);
 
@@ -17,16 +15,12 @@ const ROLE_COPY: Record<"hod" | "management", { title: string; line: string; ico
 };
 
 export function IdentityPicker() {
-  const router = useRouter();
-  const client = useQueryClient();
-  const selectUser = useSession((state) => state.selectUser);
+  const beginHandover = useHandover((state) => state.begin);
   const query = useUsers();
   const people = (query.data ?? []).filter((user) => WEB_ROLES.has(user.role));
 
   const choose = (user: User) => {
-    client.clear();
-    selectUser(user);
-    router.replace(user.role === "management" ? "/work-orders" : "/");
+    beginHandover(user, user.role === "management" ? "/work-orders" : "/");
   };
 
   return (

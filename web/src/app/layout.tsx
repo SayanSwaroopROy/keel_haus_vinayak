@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Bengali, Noto_Sans_Devanagari, Roboto, Roboto_Mono } from "next/font/google";
+import { OPENED_GATE_SCRIPT, OpeningSplash } from "@/components/motion/opening-splash";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -21,9 +22,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${roboto.variable} ${robotoMono.variable} ${bengali.variable} ${devanagari.variable} h-full`}
     >
+      <head>
+        <script
+          type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: OPENED_GATE_SCRIPT }}
+        />
+      </head>
       <body className="min-h-full">
+        <OpeningSplash />
         <Providers>{children}</Providers>
       </body>
     </html>

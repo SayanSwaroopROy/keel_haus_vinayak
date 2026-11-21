@@ -189,6 +189,12 @@ A 16px gutter with a 1px vertical cord and an 8px knot. Crimson while the accoun
 ### Decision Seal (signature)
 A 112px double-ring circle, rotated −8°. It reads "VINAYAK · HOD", the decision word, the initials and the date. Tones: approved is leaf, rejected is crimson, clarify is turmeric. It stamps in once (scale 1.18 → 1 over 420ms, expo-out) and is static under reduced motion.
 
+### Opening the Khata and the Role Handover (motion)
+The crimson cover is the ledger's binding and always hinges on the left, like the rail.
+- **First load, once per tab** (`components/motion/opening-splash.tsx`): the thread drops, the knot is tied, "VINAYAK" is inked letter by letter (blur to sharp), PROCUREMENT tracks in, the page rules are drawn, and the bn/hi line fades in. A hairline progress rule runs until hydration. Then the cover swings open to the left (640ms). Any key or click skips it. A `<head>` script sets `html[data-opened]` from sessionStorage so later loads never show it.
+- **After picking an identity** (`components/motion/role-handover.tsx`): the cover closes over the picker (440ms), the person's seal is stamped in white with an ink-spread ring, the route changes under the cover, and the cover folds into the binding rail (laptop) or the top bar (phone) once the workspace has rendered. Minimum 1.35s, and it gives up waiting after 8s.
+- Reduced motion: no drawing or wipes. Short fades only, with the composition static.
+
 ## Do's and Don'ts
 
 ### Do:

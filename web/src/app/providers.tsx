@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { isApiError } from "@/lib/api/errors";
+import { RoleHandover } from "@/components/motion/role-handover";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -27,6 +28,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={client}>
       <TooltipProvider>
         <Toaster>{children}</Toaster>
+        <RoleHandover />
       </TooltipProvider>
     </QueryClientProvider>
   );
