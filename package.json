@@ -1,0 +1,14 @@
+{
+  "name": "keelhaus",
+  "private": true,
+  "scripts": {
+    "dev:api": "cd api && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:mobile": "cd mobile && npx expo start",
+    "dev:web": "cd web && pnpm dev",
+    "lint": "cd mobile && npx expo lint && cd ../web && pnpm -s lint && cd ../api && uv run ruff check",
+    "test:all": "bash scripts/test-all.sh",
+    "test:api": "cd api && uv run pytest",
+    "test:bruno": "cd bruno && npx --yes @usebruno/cli run --env local",
+    "typecheck": "cd mobile && npx tsc --noEmit && cd ../web && pnpm -s typecheck"
+  }
+}
