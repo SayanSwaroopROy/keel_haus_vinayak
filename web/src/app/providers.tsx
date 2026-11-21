@@ -29,7 +29,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={client}>
       <TooltipProvider>
         <Toaster>{children}</Toaster>
-        <RoleHandover />
+        <Suspense fallback={null}>
+          <RoleHandover />
+        </Suspense>
         <Suspense fallback={null}>
           <RouteTransition />
         </Suspense>
