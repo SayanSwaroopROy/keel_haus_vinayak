@@ -26,6 +26,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:8000")
     ap.add_argument("--audio", help="optional voice note; used instead of the text paste")
+    ap.add_argument("--correction-audio", help="spoken correction sent to /confirm (needs --audio and --yes-audio)")
+    ap.add_argument("--yes-audio", help="spoken 'yes' sent to /confirm")
     ap.add_argument("--text", default=TEXT, help="requisition text to ingest (default: built-in sample)")
     a = ap.parse_args()
     c = httpx.Client(base_url=a.base, timeout=150)
@@ -68,9 +70,20 @@ def main() -> int:
         for it in call("eng", "GET", f"/requisitions/{ctx['rid']}")["items"]:
             print(f"      AI item: {it['description']!r} qty={it['quantity']} uom={it['uom']} flags={it['uncertain_fields']} q={it.get('clarification_question')!r}")
 
+    def spoken(path):
+        with open(path, "rb") as f:
+            return call("eng", "POST", f"/requisitions/{ctx['rid']}/confirm", files={"audio": (path, f, "audio/wav")})
+
     def confirm():
         req = call("eng", "GET", f"/requisitions/{ctx['rid']}")
         call("eng", "POST", f"/requisitions/{ctx['rid']}/readback")
+        if a.correction_audio and a.yes_audio:  # voice replies: the AI applies the correction, then reads the yes
+            r = spoken(a.correction_audio)
+            print(f"      (spoken correction -> {r['status']}; flags left: {[i['uncertain_fields'] for i in r['items']]})")
+            r = spoken(a.yes_audio)
+            if r["status"] != "PENDING_APPROVAL":
+                raise Fail(f"spoken yes left status {r['status']}")
+            return
         n = 0
         for it in req["items"]:  # the server never guesses; the engineer fills every flagged field
             if it["uncertain_fields"]:
