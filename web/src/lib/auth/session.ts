@@ -1,56 +1,51 @@
 import { create } from "zustand";
-import { UserSchema, type User } from "@/lib/api/schemas";
+import { UserSchema, type User } from "../api/schemas";
 
-const STORAGE_KEY = "vinayak.hod.session";
-
-type Session = { token: string; user: User };
+// No login: the person picks a seeded identity and every call sends X-User-Id. A demo convenience, not security.
+const STORAGE_KEY = "vinayak.identity";
 
 type SessionState = {
-  session: Session | null;
+  user: User | null;
   hydrated: boolean;
   hydrate: () => void;
-  signIn: (session: Session) => void;
-  signOut: () => void;
+  selectUser: (user: User) => void;
+  clearUser: () => void;
 };
 
-function readStored(): Session | null {
+function readStored(): User | null {
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return null;
-    const token = (parsed as { token?: unknown }).token;
-    const user = UserSchema.safeParse((parsed as { user?: unknown }).user);
-    if (typeof token !== "string" || !user.success) return null;
-    return { token, user: user.data };
+    const parsed = UserSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
 }
 
-function writeStored(session: Session | null): void {
+function writeStored(user: User | null): void {
   try {
-    if (session) window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    if (user) window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(user));
     else window.sessionStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Storage blocked (private mode): the session lives in memory only.
+    // Storage blocked (private mode): the identity lives in memory only.
   }
 }
 
 export const useSession = create<SessionState>((set) => ({
-  session: null,
+  user: null,
   hydrated: false,
-  hydrate: () => set({ session: readStored(), hydrated: true }),
-  signIn: (session) => {
-    writeStored(session);
-    set({ session, hydrated: true });
+  hydrate: () => set({ user: readStored(), hydrated: true }),
+  selectUser: (user) => {
+    writeStored(user);
+    set({ user, hydrated: true });
   },
-  signOut: () => {
+  clearUser: () => {
     writeStored(null);
-    set({ session: null, hydrated: true });
+    set({ user: null, hydrated: true });
   },
 }));
 
-export function getToken(): string | null {
-  return useSession.getState().session?.token ?? null;
+export function getUserId(): string | null {
+  return useSession.getState().user?.id ?? null;
 }

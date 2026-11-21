@@ -45,3 +45,18 @@ export function confidenceLevel(confidence: number): "high" | "medium" | "low" {
   if (confidence >= 0.7) return "medium";
   return "low";
 }
+
+const inrWhole = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+const inrFine = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Rupee amounts. Whole rupees for totals, two decimals for rates. Null is "—", never 0. */
+export function formatInr(value: number | null, fine = false): string {
+  if (value === null) return "—";
+  return `₹${(fine ? inrFine : inrWhole).format(value)}`;
+}
+
+/** yyyy-mm-dd or ISO date strings, shown as 28 Nov 2026. Date-only strings are read as local calendar days. */
+export function formatDay(value: string): string {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00+05:30`) : new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : dateFormat.format(date);
+}

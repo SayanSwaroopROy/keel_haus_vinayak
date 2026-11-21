@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, ClipboardPenIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { BanIcon, ClipboardListIcon, ClipboardPenIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "cn";
 import { DummyBadge, QueryState } from "@/components/ledger";
@@ -20,6 +20,7 @@ import { describeError } from "@/lib/api/errors";
 import { VENDOR_CATEGORIES } from "@/lib/api/mocks/fixtures";
 import type { Vendor } from "@/lib/api/schemas";
 import { PerformanceDialog } from "./performance-dialog";
+import { RegistrationDialog } from "./registration-dialog";
 import { VendorDialog } from "./vendor-dialog";
 
 function Score({ label, value, invert }: { label: string; value: number; invert?: boolean }) {
@@ -32,7 +33,7 @@ function Score({ label, value, invert }: { label: string; value: number; invert?
   );
 }
 
-function VendorRow({ vendor, onEdit, onPerformance }: { vendor: Vendor; onEdit: () => void; onPerformance: () => void }) {
+function VendorRow({ vendor, onEdit, onPerformance, onRegistration }: { vendor: Vendor; onEdit: () => void; onPerformance: () => void; onRegistration: () => void }) {
   const setStatus = useSetVendorStatus();
   const blocked = vendor.status === "blocked";
 
@@ -43,7 +44,15 @@ function VendorRow({ vendor, onEdit, onPerformance }: { vendor: Vendor; onEdit: 
           <span className={cn("font-medium", blocked && "line-through decoration-1")}>{vendor.name}</span>
           {blocked ? <Badge variant="outline">Blocked</Badge> : null}
         </span>
-        <span className="text-xs text-muted-foreground">RFQ copies: test inbox only</span>
+        {vendor.registered ? (
+          <Badge variant="settled" className="w-fit">
+            Registered
+          </Badge>
+        ) : (
+          <Badge variant="unsure" className="w-fit tabular-nums">
+            Not registered · {vendor.registration_checklist.filter((row) => row.done).length}/{vendor.registration_checklist.length} documents
+          </Badge>
+        )}
       </div>
 
       <div className="col-span-2 flex min-w-0 flex-col gap-1 lg:col-span-1">
@@ -88,6 +97,10 @@ function VendorRow({ vendor, onEdit, onPerformance }: { vendor: Vendor; onEdit: 
                 <PencilIcon />
                 Edit details
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={onRegistration}>
+                <ClipboardListIcon />
+                Registration checklist
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onPerformance}>
                 <ClipboardPenIcon />
                 Record performance
@@ -124,6 +137,7 @@ export function VendorsView() {
   const query = useVendors(category);
   const [editing, setEditing] = useState<Vendor | "new" | null>(null);
   const [rating, setRating] = useState<Vendor | null>(null);
+  const [registering, setRegistering] = useState<Vendor | null>(null);
   const categoryItems = [{ value: "ALL", label: "All categories" }, ...VENDOR_CATEGORIES.map((value) => ({ value, label: value }))];
 
   return (
@@ -156,13 +170,14 @@ export function VendorsView() {
       >
         <ul className="flex flex-col divide-y divide-rule border-y border-rule">
           {query.data?.map((vendor) => (
-            <VendorRow key={vendor.id} vendor={vendor} onEdit={() => setEditing(vendor)} onPerformance={() => setRating(vendor)} />
+            <VendorRow key={vendor.id} vendor={vendor} onEdit={() => setEditing(vendor)} onPerformance={() => setRating(vendor)} onRegistration={() => setRegistering(vendor)} />
           ))}
         </ul>
       </QueryState>
 
       <VendorDialog key={editing === "new" ? "new" : (editing?.id ?? "vendor-closed")} vendor={editing} onClose={() => setEditing(null)} />
       <PerformanceDialog key={rating?.id ?? "perf-closed"} vendor={rating} onClose={() => setRating(null)} />
+      <RegistrationDialog key={registering?.id ?? "reg-closed"} vendor={registering} onClose={() => setRegistering(null)} />
     </>
   );
 }

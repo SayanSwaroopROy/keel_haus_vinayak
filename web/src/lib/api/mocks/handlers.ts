@@ -1,3 +1,5 @@
+import { useSession } from "../../auth/session";
+import type { RegistrationInput } from "../schemas-flow";
 import { ApiError } from "../errors";
 import type {
   AssignCodeInput,
@@ -5,70 +7,39 @@ import type {
   DecisionInput,
   InventoryRow,
   MatchCodesResponse,
+  Notification,
   PerformanceInput,
+  Project,
+  Role,
   ReqItem,
   Requisition,
   RequisitionStatus,
   Revision,
   StockRow,
+  User,
   Vendor,
   VendorInput,
 } from "../schemas";
-import {
-  MOCK_CODE_MATCHES,
-  MOCK_INVENTORY,
-  MOCK_NEW_CODE_SUGGESTIONS,
-  MOCK_REQUISITIONS,
-  MOCK_REVISIONS,
-  MOCK_VENDORS,
-  RFQ_TEST_INBOX_LABEL,
-  mockId,
-} from "./fixtures";
+import { MOCK_CODE_MATCHES, MOCK_NEW_CODE_SUGGESTIONS, MOCK_PROJECTS, MOCK_USERS, REGISTRATION_LABELS, mockId } from "./fixtures";
+import { delay, getStore, resetMockStore } from "./store";
 
-const LATENCY_MS = 280;
-
-type Store = {
-  requisitions: Requisition[];
-  revisions: Record<string, Revision[]>;
-  inventory: InventoryRow[];
-  vendors: Vendor[];
-  nextVendor: number;
-};
-
-const freshStore = (): Store => structuredClone({
-  requisitions: MOCK_REQUISITIONS,
-  revisions: MOCK_REVISIONS,
-  inventory: MOCK_INVENTORY,
-  vendors: MOCK_VENDORS,
-  nextVendor: MOCK_VENDORS.length + 1,
-});
-
-let store: Store = freshStore();
-
-export function resetMockStore(): void {
-  store = freshStore();
-}
-
-const delay = async <T>(value: T, latency = LATENCY_MS): Promise<T> => {
-  if (latency > 0) await new Promise((resolve) => setTimeout(resolve, latency));
-  return structuredClone(value);
-};
+export { resetMockStore };
 
 const findRequisition = (id: string): Requisition => {
-  const requisition = store.requisitions.find((row) => row.id === id);
+  const requisition = getStore().requisitions.find((row) => row.id === id);
   if (!requisition) throw new ApiError(404, "not_found", "Requisition not found");
   return requisition;
 };
 
 const sameMaterial = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-function stockRowsFor(requisition: Requisition): StockRow[] {
+export function stockRowsFor(requisition: Requisition): StockRow[] {
   return requisition.items
     .filter((row): row is ReqItem & { quantity: number; uom: NonNullable<ReqItem["uom"]> } =>
       row.kind === "material" && row.quantity !== null && row.uom !== null,
     )
     .map((row) => {
-      const stock = store.inventory.find(
+      const stock = getStore().inventory.find(
         (inv) => inv.project_id === requisition.project_id && sameMaterial(inv.material, row.description) && inv.uom === row.uom,
       );
       const physical = stock?.physical ?? 0;
@@ -92,7 +63,9 @@ const PENDING: ReadonlySet<RequisitionStatus> = new Set(["PENDING_APPROVAL"]);
 
 export const mockApi = {
   async dashboardStats(): Promise<DashboardStats> {
-    const rows = store.requisitions;
+    const rows = getStore().requisitions;
+    const openRfqs = getStore().rfqs.filter((rfq) => rfq.status === "SENT");
+    const placed = getStore().workOrders.filter((row) => ["SENT", "ACKNOWLEDGED", "COMPLETED"].includes(row.status));
     const count = (statuses: RequisitionStatus[]) => rows.filter((row) => statuses.includes(row.status)).length;
     return delay({
       requisitions: {
@@ -101,16 +74,48 @@ export const mockApi = {
         approved: count(["APPROVED", "RFQ_FLOATED", "UNDER_EVALUATION", "VENDOR_SELECTED", "WO_GENERATED", "ORDER_PLACED", "COMPLETED"]),
         rejected: count(["REJECTED"]),
       },
-      rfqs_active: 0,
-      pending_vendor_responses: 0,
-      pending_quotations: 0,
-      orders_placed: 0,
-      spend_total: 0,
+      rfqs_active: openRfqs.length,
+      pending_vendor_responses: openRfqs.flatMap((rfq) => rfq.vendors).filter((row) => row.status === "RFQ_SENT" || row.status === "RFQ_VIEWED").length,
+      pending_quotations: openRfqs.flatMap((rfq) => rfq.vendors).filter((row) => row.status !== "QUOTATION_SUBMITTED" && row.status !== "REVISION_REQUESTED").length,
+      orders_placed: placed.length,
+      spend_total: placed.reduce((sum, row) => sum + row.total, 0),
     });
   },
 
+  async listUsers(role?: Role): Promise<User[]> {
+    return delay(role ? MOCK_USERS.filter((row) => row.role === role) : MOCK_USERS, 120);
+  },
+
+  async listProjects(): Promise<Project[]> {
+    return delay(MOCK_PROJECTS, 120);
+  },
+
+  async listNotifications(): Promise<Notification[]> {
+    const audience = useSession.getState().user?.role === "management" ? "management" : "hod";
+    return delay(
+      getStore()
+        .notifications.filter((row) => row.audience === audience)
+        .map((row) => ({ id: row.id, type: row.type, ref_type: row.ref_type, ref_id: row.ref_id, title: row.title, created_at: row.created_at, read_at: row.read_at })),
+      120,
+    );
+  },
+
+  async markNotificationRead(id: string): Promise<void> {
+    const row = getStore().notifications.find((entry) => entry.id === id);
+    if (row) row.read_at = new Date().toISOString();
+    await delay(null, 60);
+  },
+
+  async setRegistration(id: string, input: RegistrationInput): Promise<Vendor> {
+    const vendor = getStore().vendors.find((row) => row.id === id);
+    if (!vendor) throw new ApiError(404, "not_found", "Vendor not found");
+    vendor.registration_checklist = input.checklist;
+    vendor.registered = input.checklist.length > 0 && input.checklist.every((row) => row.done);
+    return delay(vendor);
+  },
+
   async listRequisitions(status?: RequisitionStatus): Promise<Requisition[]> {
-    const rows = status ? store.requisitions.filter((row) => row.status === status) : store.requisitions;
+    const rows = status ? getStore().requisitions.filter((row) => row.status === status) : getStore().requisitions;
     return delay([...rows].sort((a, b) => b.created_at.localeCompare(a.created_at)));
   },
 
@@ -120,7 +125,7 @@ export const mockApi = {
 
   async getRevisions(id: string): Promise<Revision[]> {
     const requisition = findRequisition(id);
-    const revisions = store.revisions[id] ?? [
+    const revisions = getStore().revisions[id] ?? [
       {
         version: 1,
         actor: "ai" as const,
@@ -167,7 +172,7 @@ export const mockApi = {
     }
     if (input.action === "approve") {
       for (const row of stockRowsFor(requisition)) {
-        const stock = store.inventory.find(
+        const stock = getStore().inventory.find(
           (inv) => inv.project_id === requisition.project_id && sameMaterial(inv.material, row.material) && inv.uom === row.uom,
         );
         if (!stock) continue;
@@ -185,40 +190,41 @@ export const mockApi = {
   },
 
   async listInventory(projectId?: string): Promise<InventoryRow[]> {
-    const rows = projectId ? store.inventory.filter((row) => row.project_id === projectId) : store.inventory;
+    const rows = projectId ? getStore().inventory.filter((row) => row.project_id === projectId) : getStore().inventory;
     return delay(rows);
   },
 
   async listVendors(category?: string): Promise<Vendor[]> {
-    const rows = category ? store.vendors.filter((row) => row.categories.includes(category)) : store.vendors;
+    const rows = category ? getStore().vendors.filter((row) => row.categories.includes(category)) : getStore().vendors;
     return delay(rows);
   },
 
   async createVendor(input: VendorInput): Promise<Vendor> {
-    if (store.vendors.some((row) => sameMaterial(row.name, input.name))) {
+    if (getStore().vendors.some((row) => sameMaterial(row.name, input.name))) {
       throw new ApiError(409, "conflict", "A vendor with this name already exists");
     }
     const vendor: Vendor = {
-      id: mockId(50, store.nextVendor),
+      id: mockId(50, getStore().nextVendor),
       ...input,
       category_source: "manual",
-      contact_email: RFQ_TEST_INBOX_LABEL,
+      registered: false,
+      registration_checklist: REGISTRATION_LABELS.map((label) => ({ label, done: false })),
       performance: null,
     };
-    store.nextVendor += 1;
-    store.vendors.push(vendor);
+    getStore().nextVendor += 1;
+    getStore().vendors.push(vendor);
     return delay(vendor);
   },
 
   async updateVendor(id: string, input: Partial<VendorInput>): Promise<Vendor> {
-    const vendor = store.vendors.find((row) => row.id === id);
+    const vendor = getStore().vendors.find((row) => row.id === id);
     if (!vendor) throw new ApiError(404, "not_found", "Vendor not found");
     Object.assign(vendor, input, input.categories ? { category_source: "manual" } : {});
     return delay(vendor);
   },
 
   async addPerformance(id: string, input: PerformanceInput): Promise<void> {
-    const vendor = store.vendors.find((row) => row.id === id);
+    const vendor = getStore().vendors.find((row) => row.id === id);
     if (!vendor) throw new ApiError(404, "not_found", "Vendor not found");
     const previous = vendor.performance && !vendor.performance.is_dummy ? vendor.performance : null;
     const n = (previous?.n ?? 0) + 1;

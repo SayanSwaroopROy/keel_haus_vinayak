@@ -54,7 +54,8 @@ export function DecisionBar({ requisition, blockers }: { requisition: Requisitio
   const [noteError, setNoteError] = useState<string | null>(null);
   const decide = useDecision(requisition.id);
   const record = useDecisionLog((state) => state.record);
-  const userName = useSession((state) => state.session?.user.name ?? "HOD");
+  const userName = useSession((state) => state.user?.name ?? "HOD");
+  const role = useSession((state) => state.user?.role);
   const open = requisition.status === "PENDING_APPROVAL";
   const unsure = blockers.find((blocker) => blocker.kind === "unsure");
 
@@ -84,6 +85,10 @@ export function DecisionBar({ requisition, blockers }: { requisition: Requisitio
       },
     });
   };
+
+  if (role !== "hod") {
+    return <p className="text-sm text-muted-foreground">Read-only. Only the HOD decides on a requisition.</p>;
+  }
 
   if (!open) {
     return (

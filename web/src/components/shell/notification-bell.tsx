@@ -16,6 +16,13 @@ import {
 import { useMarkNotificationRead, useNotifications } from "@/lib/api/hooks";
 import { formatRelative } from "@/lib/format";
 
+const ROUTES: Record<string, string> = { requisition: "/requisitions", rfq: "/rfqs", work_order: "/work-orders" };
+
+function notificationHref(refType: string | null, refId: string | null): string | null {
+  const base = refType ? ROUTES[refType] : undefined;
+  return base && refId ? `${base}/${refId}` : null;
+}
+
 export function NotificationBell({ tone }: { tone: "binding" | "page" }) {
   const { data, isError } = useNotifications();
   const markRead = useMarkNotificationRead();
@@ -61,7 +68,7 @@ export function NotificationBell({ tone }: { tone: "binding" | "page" }) {
           ) : !data ? (
             <p className="px-2 py-3 text-sm text-muted-foreground">Loading…</p>
           ) : data.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-muted-foreground">Nothing new. Submitted requisitions appear here.</p>
+            <p className="px-2 py-3 text-sm text-muted-foreground">Nothing new. Requisitions, quotations and Work Orders appear here.</p>
           ) : (
             data.slice(0, 8).map((row) => (
               <DropdownMenuItem
@@ -69,9 +76,7 @@ export function NotificationBell({ tone }: { tone: "binding" | "page" }) {
                 onClick={() => {
                   if (row.read_at === null) markRead.mutate(row.id);
                 }}
-                render={
-                  row.ref_type === "requisition" && row.ref_id ? <Link href={`/requisitions/${row.ref_id}`} /> : undefined
-                }
+                render={notificationHref(row.ref_type, row.ref_id) ? <Link href={notificationHref(row.ref_type, row.ref_id) ?? "/"} /> : undefined}
                 className="flex items-start gap-2 py-2"
               >
                 <span

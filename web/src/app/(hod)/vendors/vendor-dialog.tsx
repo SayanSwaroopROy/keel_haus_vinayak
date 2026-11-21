@@ -66,7 +66,7 @@ export function VendorDialog({ vendor, onClose }: { vendor: Vendor | "new" | nul
         <form onSubmit={submit} noValidate className="flex flex-col gap-5">
           <DialogHeader>
             <DialogTitle>{existing ? "Edit vendor" : "Add vendor"}</DialogTitle>
-            <DialogDescription>Contact email is fixed to the RFQ test inbox. Real vendors are never emailed.</DialogDescription>
+            <DialogDescription>Vendors receive RFQs in the Vinayak app. No email is sent.</DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field data-invalid={errors.name ? true : undefined}>

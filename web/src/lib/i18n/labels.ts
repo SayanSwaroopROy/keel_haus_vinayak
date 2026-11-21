@@ -8,6 +8,9 @@ export const NAV_LABELS = {
   requisitions: { en: "Requisitions", bn: "চাহিদাপত্র", hi: "माँग-पत्र" },
   inventory: { en: "Inventory", bn: "মজুত", hi: "स्टॉक" },
   vendors: { en: "Vendors", bn: "বিক্রেতা", hi: "विक्रेता" },
+  rfqs: { en: "RFQs", bn: "দরপত্র", hi: "आरएफक्यू" },
+  conversations: { en: "Conversations", bn: "আলোচনা", hi: "बातचीत" },
+  workOrders: { en: "Work Orders", bn: "ওয়ার্ক অর্ডার", hi: "वर्क ऑर्डर" },
 } as const satisfies Record<string, Trilingual>;
 
 export const STATUS_LABELS: Record<RequisitionStatus, Trilingual> = {

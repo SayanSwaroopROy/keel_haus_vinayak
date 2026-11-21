@@ -5,7 +5,7 @@ import { z } from "zod";
 const id = z.uuid();
 const timestamp = z.string().min(1);
 
-export const RoleSchema = z.enum(["site_engineer", "hod", "vendor"]);
+export const RoleSchema = z.enum(["site_engineer", "hod", "management", "vendor"]);
 
 export const UserSchema = z.object({
   id,
@@ -14,8 +14,6 @@ export const UserSchema = z.object({
   vendor_id: id.nullable(),
   project_ids: z.array(id),
 });
-
-export const LoginResponseSchema = z.object({ token: z.string().min(1), user: UserSchema });
 
 export const ProjectSchema = z.object({ id, code: z.string(), name: z.string() });
 
@@ -149,6 +147,8 @@ export const VendorPerformanceSchema = z.object({
   is_dummy: z.boolean(),
 });
 
+export const RegistrationItemSchema = z.object({ label: z.string(), done: z.boolean() });
+
 export const VendorSchema = z.object({
   id,
   name: z.string(),
@@ -156,7 +156,8 @@ export const VendorSchema = z.object({
   category_source: z.enum(["inferred", "manual"]),
   brands: z.array(z.string()),
   status: z.enum(["active", "blocked"]),
-  contact_email: z.string(),
+  registered: z.boolean(),
+  registration_checklist: z.array(RegistrationItemSchema),
   performance: VendorPerformanceSchema.nullable(),
 });
 
@@ -175,11 +176,6 @@ export const ApiErrorBodySchema = z.object({
 });
 
 // Request bodies
-export const LoginInputSchema = z.object({
-  username: z.string().trim().min(1, "Enter your username").max(100),
-  password: z.string().min(1, "Enter your password").max(200),
-});
-
 export const DecisionActionSchema = z.enum(["approve", "reject", "clarify"]);
 export const DecisionInputSchema = z.object({
   action: DecisionActionSchema,
@@ -220,7 +216,6 @@ export type InventoryRow = z.infer<typeof InventoryRowSchema>;
 export type DashboardStats = z.infer<typeof DashboardStatsSchema>;
 export type Vendor = z.infer<typeof VendorSchema>;
 export type Notification = z.infer<typeof NotificationSchema>;
-export type LoginInput = z.infer<typeof LoginInputSchema>;
 export type DecisionAction = z.infer<typeof DecisionActionSchema>;
 export type DecisionInput = z.infer<typeof DecisionInputSchema>;
 export type AssignCodeInput = z.infer<typeof AssignCodeInputSchema>;

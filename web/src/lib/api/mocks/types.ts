@@ -4,6 +4,7 @@ export type {
   ReqItem,
   Requisition,
   Revision,
+  User,
   Vendor,
 } from "../schemas";
 

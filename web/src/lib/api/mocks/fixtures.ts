@@ -5,12 +5,11 @@ import type {
   ReqItem,
   Requisition,
   Revision,
+  User,
   Vendor,
 } from "./types";
 
 // Invented demo data only. Nothing here comes from the client data pack.
-
-export const RFQ_TEST_INBOX_LABEL = "rfq-test-inbox@example.invalid";
 
 const uid = (group: number, index: number): string =>
   `00000000-0000-4000-8000-${String(group).padStart(6, "0")}${String(index).padStart(6, "0")}`;
@@ -251,11 +250,24 @@ export const MOCK_REQUISITIONS: Requisition[] = [
       item({
         id: uid(13, 1),
         kind: "material",
-        description: "Cement",
-        uom: "BAG",
-        quantity: 200,
+        description: "Paver Block 60mm",
+        category: "Road / Civil",
+        spec: "M-30 grey, zig-zag pattern",
+        uom: "SQM",
+        quantity: 900,
         confidence: 0.97,
-        item_code: "CM.01.1",
+        item_code: "RD.04.2",
+      }),
+      item({
+        id: uid(13, 2),
+        kind: "material",
+        description: "Precast Kerb Stone",
+        category: "Road / Civil",
+        spec: "300 x 150 x 450 mm",
+        uom: "NOS",
+        quantity: 150,
+        confidence: 0.96,
+        item_code: "RD.05.1",
       }),
     ],
     revision: 1,
@@ -327,6 +339,42 @@ export const MOCK_REQUISITIONS: Requisition[] = [
     revision: 1,
     confirmed_at: daysAgo(9),
     created_at: daysAgo(9, 9),
+  },
+  {
+    id: uid(20, 118),
+    project_id: MOCK_PROJECTS[0].id,
+    raised_by: uid(2, 1),
+    input_type: "pdf",
+    original_lang: "en",
+    source_file_id: null,
+    status: "UNDER_EVALUATION",
+    items: [
+      item({
+        id: uid(17, 1),
+        kind: "material",
+        description: "Paver Block 60mm",
+        category: "Road / Civil",
+        spec: "M-30 grey, zig-zag pattern",
+        uom: "SQM",
+        quantity: 650,
+        confidence: 0.95,
+        item_code: "RD.04.2",
+      }),
+      item({
+        id: uid(17, 2),
+        kind: "material",
+        description: "Precast Kerb Stone",
+        category: "Road / Civil",
+        spec: "300 x 150 x 450 mm",
+        uom: "NOS",
+        quantity: 180,
+        confidence: 0.93,
+        item_code: "RD.05.1",
+      }),
+    ],
+    revision: 1,
+    confirmed_at: daysAgo(8),
+    created_at: daysAgo(8, 9),
   },
 ];
 
@@ -401,21 +449,49 @@ const vendorSeed: Array<[string, string[], string[], [number, number, number]]> 
   ["Demo Metro Civil Works", ["Road / Civil"], [], [3, 3, 3]],
   ["Demo Cement Traders", ["Cement"], ["Brand A", "Brand B"], [4, 5, 1]],
   ["Demo Bengal Cement Depot", ["Cement"], ["Brand B"], [5, 3, 2]],
+  ["Demo Eastern Cement Agency", ["Cement"], ["Brand A"], [3, 4, 2]],
   ["Demo Sand & Aggregates", ["Sand & Aggregates"], [], [3, 4, 1]],
   ["Demo Rod & Steel Supply", ["Iron Rods"], ["Brand S"], [4, 4, 2]],
   ["Demo Fasteners House", ["Fasteners"], [], [4, 5, 1]],
 ];
 
-export const MOCK_VENDORS: Vendor[] = vendorSeed.map(([name, categories, brands, [quality, delivery, disputes]], index) => ({
-  id: uid(50, index + 1),
-  name,
-  categories,
-  category_source: "inferred",
-  brands,
-  status: "active",
-  contact_email: RFQ_TEST_INBOX_LABEL,
-  performance: { quality, delivery, disputes, n: 3, is_dummy: true },
-}));
+// Invented demo checklist; the real list comes from Vinayak's vendor registration form.
+export const REGISTRATION_LABELS = [
+  "GST registration certificate",
+  "PAN card",
+  "Bank details (cancelled cheque)",
+  "Past work or experience certificate",
+  "Statutory compliance undertaking",
+] as const;
+
+// How many checklist items each demo vendor has already completed, by seed index.
+const REGISTRATION_DONE = [5, 3, 5, 5, 2, 5, 5, 1, 0, 5, 5];
+
+export const MOCK_VENDORS: Vendor[] = vendorSeed.map(([name, categories, brands, [quality, delivery, disputes]], index) => {
+  const done = REGISTRATION_DONE[index] ?? 0;
+  return {
+    id: uid(50, index + 1),
+    name,
+    categories,
+    category_source: "inferred",
+    brands,
+    status: "active",
+    registered: done === REGISTRATION_LABELS.length,
+    registration_checklist: REGISTRATION_LABELS.map((label, position) => ({ label, done: position < done })),
+    performance: { quality, delivery, disputes, n: 3, is_dummy: true },
+  };
+});
+
+// Seeded identities for the role picker. Names are invented.
+export const MOCK_USERS: User[] = [
+  { id: uid(3, 1), name: "HOD Contracts (demo)", role: "hod", vendor_id: null, project_ids: [MOCK_PROJECTS[0].id, MOCK_PROJECTS[1].id] },
+  { id: uid(3, 2), name: "Management Approver (demo)", role: "management", vendor_id: null, project_ids: [MOCK_PROJECTS[0].id, MOCK_PROJECTS[1].id] },
+  { id: uid(2, 1), name: "Site Engineer One (demo)", role: "site_engineer", vendor_id: null, project_ids: [MOCK_PROJECTS[0].id] },
+  { id: uid(2, 2), name: "Site Engineer Two (demo)", role: "site_engineer", vendor_id: null, project_ids: [MOCK_PROJECTS[1].id] },
+  { id: uid(4, 3), name: "Paving & Roads Co (demo)", role: "vendor", vendor_id: uid(50, 3), project_ids: [] },
+  { id: uid(4, 4), name: "Roadline Infra (demo)", role: "vendor", vendor_id: uid(50, 4), project_ids: [] },
+  { id: uid(4, 5), name: "Metro Civil Works (demo)", role: "vendor", vendor_id: uid(50, 5), project_ids: [] },
+];
 
 export const VENDOR_CATEGORIES = [
   "Waterproofing",

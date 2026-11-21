@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { getToken, useSession } from "@/lib/auth/session";
+import { getUserId, useSession } from "@/lib/auth/session";
 import { ApiError, fromThrown, parseErrorBody } from "./errors";
 
 const BASE = "/api";
@@ -11,18 +11,21 @@ type RequestOptions<T> = {
   method?: Method;
   body?: unknown;
   schema: z.ZodType<T>;
-  auth?: boolean;
+  /** False only for /health and GET /users, which need no identity. */
+  identified?: boolean;
 };
 
+function identityHeader(): Record<string, string> {
+  const userId = getUserId();
+  if (!userId) throw new ApiError(401, "unauthorized", "No identity selected.");
+  return { "X-User-Id": userId };
+}
+
 export async function apiFetch<T>(path: string, options: RequestOptions<T>): Promise<T> {
-  const { method = "GET", body, schema, auth = true } = options;
+  const { method = "GET", body, schema, identified = true } = options;
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (auth) {
-    const token = getToken();
-    if (!token) throw new ApiError(401, "unauthorized", "Not signed in.");
-    headers.Authorization = `Bearer ${token}`;
-  }
+  if (identified) Object.assign(headers, identityHeader());
 
   let response: Response;
   try {
@@ -43,7 +46,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions<T>): Pro
 
   if (!response.ok) {
     const error = parseErrorBody(response.status, payload);
-    if (error.code === "unauthorized" && auth) useSession.getState().signOut();
+    if (error.code === "unauthorized" && identified) useSession.getState().clearUser();
     throw error;
   }
 
@@ -55,12 +58,10 @@ export async function apiFetch<T>(path: string, options: RequestOptions<T>): Pro
 }
 
 export async function apiFetchBlob(path: string): Promise<Blob> {
-  const token = getToken();
-  if (!token) throw new ApiError(401, "unauthorized", "Not signed in.");
   let response: Response;
   try {
     response = await fetch(`${BASE}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: identityHeader(),
       signal: AbortSignal.timeout(TIMEOUT_MS * 2),
     });
   } catch (error) {

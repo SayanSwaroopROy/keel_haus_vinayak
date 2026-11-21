@@ -38,8 +38,10 @@ describe("mock fixtures match the API contract", () => {
     }
   });
 
-  it("vendor contact emails are never real addresses", () => {
-    for (const vendor of MOCK_VENDORS) expect(vendor.contact_email.endsWith(".invalid")).toBe(true);
+  it("a vendor is registered exactly when every checklist item is done", () => {
+    for (const vendor of MOCK_VENDORS) {
+      expect(vendor.registered).toBe(vendor.registration_checklist.every((row) => row.done));
+    }
   });
 });
 

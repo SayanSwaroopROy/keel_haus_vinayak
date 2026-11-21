@@ -1,6 +1,16 @@
 "use client";
 
-import { LayoutDashboardIcon, LogOutIcon, MenuIcon, PackageIcon, ScrollTextIcon, StoreIcon } from "lucide-react";
+import {
+  ArrowLeftRightIcon,
+  ClipboardSignatureIcon,
+  FileSpreadsheetIcon,
+  LayoutDashboardIcon,
+  MenuIcon,
+  MessagesSquareIcon,
+  PackageIcon,
+  ScrollTextIcon,
+  StoreIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -14,28 +24,38 @@ import { useSession } from "@/lib/auth/session";
 import { NAV_LABELS } from "@/lib/i18n/labels";
 import { NotificationBell } from "./notification-bell";
 
-const NAV = [
+const HOD_NAV = [
   { href: "/", label: NAV_LABELS.dashboard, icon: LayoutDashboardIcon },
   { href: "/requisitions", label: NAV_LABELS.requisitions, icon: ScrollTextIcon },
+  { href: "/rfqs", label: NAV_LABELS.rfqs, icon: FileSpreadsheetIcon },
+  { href: "/conversations", label: NAV_LABELS.conversations, icon: MessagesSquareIcon },
+  { href: "/work-orders", label: NAV_LABELS.workOrders, icon: ClipboardSignatureIcon },
   { href: "/inventory", label: NAV_LABELS.inventory, icon: PackageIcon },
   { href: "/vendors", label: NAV_LABELS.vendors, icon: StoreIcon },
 ] as const;
 
+const MANAGEMENT_NAV = [{ href: "/work-orders", label: NAV_LABELS.workOrders, icon: ClipboardSignatureIcon }] as const;
+
+const ROLE_TITLE = { hod: "Contracts & Planning HOD", management: "Management" } as const;
+
 function Wordmark({ className }: { className?: string }) {
+  const role = useSession((state) => state.user?.role);
   return (
     <span className={cn("flex flex-col leading-none", className)}>
       <span className="text-[1.35rem] font-medium tracking-[0.22em]">VINAYAK</span>
-      <span className="mt-1 text-[0.62rem] tracking-[0.18em] text-binding-foreground/80">PROCUREMENT · HOD</span>
+      <span className="mt-1 text-[0.62rem] tracking-[0.18em] text-binding-foreground/80">{role === "management" ? "PROCUREMENT · MANAGEMENT" : "PROCUREMENT · HOD"}</span>
     </span>
   );
 }
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const role = useSession((state) => state.user?.role);
+  const NAV = role === "management" ? MANAGEMENT_NAV : HOD_NAV;
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {NAV.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || pathname.startsWith(`${href}/`);
+        const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
             key={href}
@@ -59,25 +79,27 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function UserBlock() {
   const router = useRouter();
   const client = useQueryClient();
-  const { session, signOut } = useSession();
+  const { user, clearUser } = useSession();
+  const title = user?.role === "management" || user?.role === "hod" ? ROLE_TITLE[user.role] : "";
   return (
     <div className="flex items-center justify-between gap-2 border-t border-sidebar-border pt-4">
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{session?.user.name}</p>
-        <p className="text-xs text-binding-foreground/75">Contracts &amp; Planning HOD</p>
+        <p className="truncate text-sm font-medium">{user?.name}</p>
+        <p className="text-xs text-binding-foreground/75">{title}</p>
       </div>
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Sign out"
+        aria-label="Switch user"
+        title="Switch user"
         className="text-binding-foreground hover:bg-binding-deep hover:text-binding-foreground"
         onClick={() => {
-          signOut();
+          clearUser();
           client.clear();
           router.replace("/login");
         }}
       >
-        <LogOutIcon />
+        <ArrowLeftRightIcon />
       </Button>
     </div>
   );
@@ -88,7 +110,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col justify-between bg-binding p-4 text-binding-foreground lg:flex">
+      <aside data-app-chrome="" className="sticky top-0 hidden h-dvh print:hidden w-64 shrink-0 flex-col justify-between bg-binding p-4 text-binding-foreground lg:flex">
         <div className="flex flex-col gap-8">
           <Link href="/" className="px-3 pt-2 focus-visible:outline-binding-foreground">
             <Wordmark />
@@ -100,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 bg-binding px-2 text-binding-foreground lg:hidden">
+        <header data-app-chrome="" className="sticky top-0 z-30 flex h-14 print:hidden items-center justify-between gap-2 bg-binding px-2 text-binding-foreground lg:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
               render={
@@ -133,8 +155,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {ANY_MOCKED ? (
-          <p role="note" className="border-b border-unsure/30 bg-unsure-soft px-4 py-1.5 text-xs text-unsure-foreground sm:px-8">
-            Demo data: requisitions, stock, vendors and dashboard figures are simulated until the backend endpoints are live.
+          <p role="note" data-app-chrome="" className="border-b border-unsure/30 bg-unsure-soft px-4 py-1.5 text-xs text-unsure-foreground sm:px-8 print:hidden">
+            Demo data: requisitions, stock, vendors, RFQs, quotations and Work Orders are simulated, and there is no real sign-in, until the backend endpoints are live.
           </p>
         ) : null}
 
@@ -146,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-rule px-4 pt-6 pb-5 sm:px-8 sm:pt-8">
+    <header data-app-chrome="" className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-rule px-4 pt-6 pb-5 sm:px-8 sm:pt-8 print:hidden">
       <div className="flex min-w-0 flex-col gap-1">
         <h1 className="text-2xl font-medium text-balance">{title}</h1>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}

@@ -170,3 +170,10 @@
     animation: none;
   }
 }
+
+/* Work Order print view: the app chrome never prints. */
+@media print {
+  [data-app-chrome] {
+    display: none !important;
+  }
+}

@@ -18,6 +18,7 @@ import { INPUT_TYPE_LABEL, requisitionBlockers } from "@/lib/requisition";
 import { CodesPanel } from "./codes-panel";
 import { DecisionBar } from "./decision-bar";
 import { HistoryPanel } from "./history-panel";
+import { RfqLinks } from "./rfq-links";
 import { ItemsPanel } from "./items-panel";
 import { SourcePanel } from "./source-panel";
 import { StockPanel } from "./stock-panel";
@@ -114,6 +115,7 @@ function Header({ requisition }: { requisition: Requisition }) {
       ) : null}
 
       <DecisionBar requisition={requisition} blockers={blockers} />
+      <RfqLinks requisition={requisition} />
     </header>
   );
 }

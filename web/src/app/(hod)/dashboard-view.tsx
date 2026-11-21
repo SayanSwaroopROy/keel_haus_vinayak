@@ -42,7 +42,7 @@ function Ledger({ stats }: { stats: DashboardStats }) {
 }
 
 export function DashboardView() {
-  const user = useSession((state) => state.session?.user);
+  const user = useSession((state) => state.user);
   const pending = useRequisitions("PENDING_APPROVAL", { poll: true });
   const all = useRequisitions("ALL");
   const stats = useDashboardStats();

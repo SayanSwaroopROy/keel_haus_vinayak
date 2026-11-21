@@ -9,7 +9,7 @@ export default function VendorsPage() {
     <>
       <PageHeader
         title="Vendors"
-        description="Contractors and suppliers who receive RFQs. RFQ copies only ever go to the test inbox."
+        description="Contractors and suppliers who receive RFQs. A vendor must complete the registration checklist before a Work Order can be raised."
       />
       <main className="flex flex-col gap-4 px-4 py-6 sm:px-8">
         <VendorsView />

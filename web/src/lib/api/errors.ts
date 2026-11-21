@@ -9,7 +9,7 @@ export type ApiErrorCode =
   | "conflict"
   | "unsupported_file"
   | "file_too_large"
-  | "forbidden_recipient"
+  | "vendor_not_registered"
   | "provider_error"
   | "timeout"
   | "internal"
@@ -25,7 +25,7 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ApiErrorCode>([
   "conflict",
   "unsupported_file",
   "file_too_large",
-  "forbidden_recipient",
+  "vendor_not_registered",
   "provider_error",
   "timeout",
   "internal",
@@ -72,11 +72,12 @@ export function fromThrown(error: unknown): ApiError {
 }
 
 const FRIENDLY: Partial<Record<ApiErrorCode, string>> = {
-  unauthorized: "Your session has ended. Sign in again.",
+  unauthorized: "Pick who you are working as to continue.",
   forbidden: "You don't have access to this.",
   not_found: "This record no longer exists.",
   invalid_transition: "This record has already moved on. Refresh to see its current state.",
   conflict: "Something changed meanwhile. Refresh and try again.",
+  vendor_not_registered: "This vendor has not completed the registration checklist yet.",
   timeout: "The server took too long to answer. Try again.",
   network_error: "Could not reach the server. Check your connection and try again.",
   provider_error: "An AI or voice service failed. Try again shortly.",

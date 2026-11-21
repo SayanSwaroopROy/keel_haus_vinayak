@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { VinayakLogo } from "@/components/brand";
-import { LoginForm } from "./login-form";
+import { IdentityPicker } from "./login-form";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Choose who you are" };
 
 export default function LoginPage() {
   return (
@@ -13,7 +13,7 @@ export default function LoginPage() {
       >
         <p aria-hidden="true" className="flex flex-col leading-none">
           <span className="text-[1.35rem] font-medium tracking-[0.22em]">VINAYAK</span>
-          <span className="mt-1 text-[0.62rem] tracking-[0.18em] text-binding-foreground/80">PROCUREMENT · HOD</span>
+          <span className="mt-1 text-[0.62rem] tracking-[0.18em] text-binding-foreground/80">PROCUREMENT</span>
         </p>
         <div className="flex max-w-md flex-col gap-5">
           <h1 className="text-4xl leading-tight font-medium text-balance">
@@ -34,11 +34,11 @@ export default function LoginPage() {
           <div className="flex flex-col gap-4">
             <VinayakLogo priority className="w-40" />
             <div className="flex flex-col gap-1">
-              <h2 className="text-2xl font-medium">Sign in to Procurement</h2>
-              <p className="text-sm text-muted-foreground">HOD workspace. Use the account your administrator gave you.</p>
+              <h2 className="text-2xl font-medium">Who is working today?</h2>
+              <p className="text-sm text-muted-foreground">Pick your role to open the workspace. Demo build: there is no password.</p>
             </div>
           </div>
-          <LoginForm />
+          <IdentityPicker />
         </div>
       </section>
     </main>
